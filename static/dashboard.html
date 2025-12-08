@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Mia Bacheca - Pianificatore Sessioni D&D</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dnd-black': '#0a0a0a',
+                        'dnd-dark': '#1a1a1a',
+                        'dnd-darker': '#121212',
+                        'dnd-red': '#dc2626',
+                        'dnd-red-dark': '#991b1b',
+                        'dnd-red-light': '#ef4444',
+                        'dnd-crimson': '#8b0000',
+                        'dnd-gold': '#fbbf24',
+                        // Legacy mappings
+                        'forest': '#dc2626',
+                        'amber': '#fbbf24',
+                        'mystic': '#8b0000',
+                        'cream': '#f5f5f5',
+                        'emerald': '#dc2626',
+                        'deep-red': '#991b1b'
+                    },
+                    fontFamily: {
+                        'cinzel': ['Cinzel', 'serif'],
+                        'inter': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- D&D Theme CSS -->
+    <link rel="stylesheet" href="css/dnd-theme.css">
+</head>
+
+<body class="font-inter">
+    <!-- Navigation -->
+    <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center">
+                        <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                    </div>
+                    <h1 class="font-cinzel text-xl font-semibold text-forest">La Mia Bacheca</h1>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <a href="http://127.0.0.1:30000/auth" target="_blank" data-foundry-btn
+                        class="flex items-center space-x-2 bg-gradient-to-r from-amber to-copper text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+                        <span>🎲</span>
+                        <span>FoundryVTT</span>
+                    </a>
+                    <div id="user-display" class="flex items-center space-x-2 text-forest font-medium"></div>
+                    <button id="logout-btn"
+                        class="flex items-center space-x-2 bg-gradient-to-r from-deep-red to-mystic text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+                        <span>🚪</span>
+                        <span>Esci</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-forest mb-2">Welcome back, <span
+                    id="user-name">Avventuriero</span>!</h2>
+            <p class="text-gray-600">Manage your D&D sessions and availability</p>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Sessioni Totali</p>
+                        <p class="text-3xl font-bold text-forest" id="total-sessions">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-forest/10 rounded-lg flex items-center justify-center">
+                        <span class="text-2xl">🎲</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Disponibilità Inviate</p>
+                        <p class="text-3xl font-bold text-emerald" id="submitted-count">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald/10 rounded-lg flex items-center justify-center">
+                        <span class="text-2xl">✅</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">In Attesa</p>
+                        <p class="text-3xl font-bold text-amber" id="pending-count">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber/10 rounded-lg flex items-center justify-center">
+                        <span class="text-2xl">⏳</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Sessions -->
+        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6 mb-8">
+            <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">Le Mie Sessioni</h3>
+
+            <div id="sessions-list" class="space-y-4">
+                <!-- Le sessioni saranno caricate qui -->
+                <div class="text-center py-8 text-gray-500">
+                    <p>Loading your sessions...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="/participate.html"
+                class="bg-gradient-to-br from-forest to-emerald text-white rounded-xl shadow-lg mystical-glow p-6 text-center hover:scale-105 transition-transform">
+                <div class="text-4xl mb-2">🎯</div>
+                <h4 class="font-cinzel text-xl font-bold mb-2">Partecipa</h4>
+                <p class="text-white/80">Indica la tua disponibilità per le sessioni</p>
+            </a>
+
+            <a href="/profile.html"
+                class="bg-gradient-to-br from-mystic to-amber text-white rounded-xl shadow-lg mystical-glow p-6 text-center hover:scale-105 transition-transform">
+                <div class="text-4xl mb-2">⚙️</div>
+                <h4 class="font-cinzel text-xl font-bold mb-2">Impostazioni Profilo</h4>
+                <p class="text-white/80">Gestisci il tuo account e le preferenze</p>
+            </a>
+        </div>
+    </div>
+
+    <script src="js/nav-protection.js"></script>
+    <script src="js/foundry-config.js"></script>
+
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Require authentication
+        window.authManager.requireAuth('/dashboard.html');
+
+        // Update user name
+        if (window.authManager.user) {
+            document.getElementById('user-name').textContent = window.authManager.user.name;
+        }
+
+        // Load user's sessions
+        async function loadUserSessions() {
+            try {
+                // Get all polls
+                const response = await fetch('/api/polls');
+                if (!response.ok) throw new Error(`Failed to fetch polls: ${response.status} ${response.statusText}`);
+                const polls = await response.json();
+
+                // Filter polls where user is a participant
+                const userEmail = window.authManager.user.email;
+                if (!userEmail) throw new Error("User email not found in profile");
+
+                const userSessionsCtx = [];
+
+                // Fetch details for all polls in parallel (with limit/robustness if needed)
+                // Using Promise.allSettled to prevent one failure from breaking everything
+                const pollPromises = polls.map(async (poll) => {
+                    try {
+                        const pollResponse = await fetch(`/api/polls/${poll.id}`);
+                        if (!pollResponse.ok) return null; // Skip if failed
+                        const pollData = await pollResponse.json();
+
+                        // Check if user is a participant
+                        // Handle potential missing participants array
+                        if (pollData && pollData.participants && pollData.participants.some(p => p.email === userEmail)) {
+                            return pollData;
+                        }
+                    } catch (e) {
+                        console.error(`Error processing poll ${poll.id}:`, e);
+                        return null;
+                    }
+                    return null;
+                });
+
+                const results = await Promise.all(pollPromises);
+                const userSessions = results.filter(p => p !== null);
+
+                // Update stats
+                document.getElementById('total-sessions').textContent = userSessions.length;
+
+                // Count submitted vs pending
+                let submitted = 0;
+                let pending = 0;
+
+                for (const session of userSessions) {
+                    const participant = session.participants.find(p => p.email === userEmail);
+                    if (participant && session.availability && session.availability.some(a => a.participant_id === participant.id)) {
+                        submitted++;
+                    } else {
+                        pending++;
+                    }
+                }
+
+                document.getElementById('submitted-count').textContent = submitted;
+                document.getElementById('pending-count').textContent = pending;
+
+                // Display sessions
+                const sessionsList = document.getElementById('sessions-list');
+
+                if (userSessions.length === 0) {
+                    sessionsList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <p class="mb-4">Non hai ancora partecipato a nessuna sessione.</p>
+                            <a href="/participate.html" class="text-forest font-semibold hover:text-amber transition-colors">
+                                Join your first session →
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    sessionsList.innerHTML = userSessions.map(session => {
+                        const participant = session.participants.find(p => p.email === userEmail);
+                        const hasSubmitted = participant && session.availability && session.availability.some(a => a.participant_id === participant.id);
+
+                        return `
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-amber transition-colors">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h4 class="font-semibold text-forest text-lg">${session.poll.title}</h4>
+                                        <p class="text-gray-600 text-sm mt-1">${(session.poll.description || '').split('\n')[0]}</p>
+                                        <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                            <span>📍 ${session.poll.location || 'Online'}</span>
+                                            <span>👥 ${session.participants.length} participants</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-end space-y-2">
+                                        ${hasSubmitted
+                                ? '<span class="px-3 py-1 bg-emerald/10 text-emerald text-xs font-medium rounded-full">✅ Submitted</span>'
+                                : '<span class="px-3 py-1 bg-amber/10 text-amber text-xs font-medium rounded-full">⏳ In Attesa</span>'
+                            }
+                                        <a href="/participate.html?session=${session.poll.id}" class="text-forest hover:text-amber transition-colors text-sm font-medium">
+                                            ${hasSubmitted ? 'Update' : 'Invia'} Availability →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('sessions-list').innerHTML = `
+                    <div class="text-center py-8 text-deep-red">
+                        <p>Impossibile caricare le sessioni: ${error.message}</p>
+                        <p class="text-sm mt-2 text-gray-500">Per favore riprova o contatta l'amministratore.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load sessions on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Wait for auth to be verified (auth.js runs on DOMContentLoaded too, so we might need a small delay or event)
+            // Better approach: auth.js auto-verifies. Let's wait a moment or check if logged in.
+
+            // Note: auth.js redirects if not logged in within requireAuth.
+            // If we are here, we might still be waiting for user data to be parsed/verified if it's async.
+
+            // However, auth.js is synchronous in constructor for basic local storage check.
+            if (window.authManager && window.authManager.user) {
+                await loadUserSessions();
+            } else {
+                console.log('User not fully authenticated yet, waiting...');
+                // Optional: retry or let auth.js handle redirect
+            }
+        });
+    </script>
+</body>
+
+</html>

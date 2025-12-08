@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crea Nuova Campagna - Pianificatore Sessioni D&D</title>
+
+  <!-- Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <!-- Core Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'dnd-black': '#0a0a0a',
+            'dnd-dark': '#1a1a1a',
+            'dnd-darker': '#121212',
+            'dnd-red': '#dc2626',
+            'dnd-red-dark': '#991b1b',
+            'dnd-red-light': '#ef4444',
+            'dnd-crimson': '#8b0000',
+            'dnd-gold': '#fbbf24',
+            // Legacy color mappings for compatibility
+            forest: "#dc2626",
+            amber: "#fbbf24",
+            mystic: "#8b0000",
+            cream: "#f5f5f5",
+            emerald: "#dc2626",
+            copper: "#d97706",
+            "deep-red": "#991b1b",
+          },
+          fontFamily: {
+            cinzel: ["Cinzel", "serif"],
+            inter: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- D&D Theme CSS -->
+  <link rel="stylesheet" href="css/dnd-theme.css" />
+
+  <!-- Authentication -->
+  <script src="js/auth-utils.js"></script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%);
+      min-height: 100vh;
+    }
+
+    .aurora-bg {
+      background: linear-gradient(45deg,
+          rgba(26, 61, 46, 0.1) 0%,
+          rgba(107, 91, 149, 0.1) 25%,
+          rgba(212, 165, 116, 0.1) 50%,
+          rgba(74, 124, 89, 0.1) 75%,
+          rgba(26, 61, 46, 0.1) 100%);
+      background-size: 400% 400%;
+      animation: aurora 20s ease-in-out infinite;
+    }
+
+    @keyframes aurora {
+
+      0%,
+      100% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    .mystical-glow {
+      box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .mystical-glow:hover {
+      box-shadow: 0 8px 30px rgba(212, 165, 116, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .step-indicator {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .step-active {
+      background: linear-gradient(135deg, #1a3d2e 0%, #6b5b95 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(26, 61, 46, 0.3);
+    }
+
+    .step-completed {
+      background: linear-gradient(135deg, #4a7c59 0%, #d4a574 100%);
+      color: white;
+    }
+
+    .step-inactive {
+      background: #e5e7eb;
+      color: #6b7280;
+    }
+
+    .form-step {
+      display: none;
+    }
+
+    .form-step.active {
+      display: block;
+      animation: fadeInUp 0.5s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .time-slot {
+      padding: 8px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+    }
+
+    .time-slot:hover {
+      border-color: #d4a574;
+      background-color: rgba(212, 165, 116, 0.1);
+    }
+
+    .time-slot.selected {
+      border-color: #1a3d2e;
+      background-color: rgba(26, 61, 46, 0.1);
+      color: #1a3d2e;
+      font-weight: 600;
+    }
+
+    .participant-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: rgba(26, 61, 46, 0.1);
+      color: #1a3d2e;
+      border-radius: 20px;
+      font-size: 14px;
+      margin: 4px;
+      transition: all 0.3s ease;
+    }
+
+    .participant-chip:hover {
+      background: rgba(26, 61, 46, 0.2);
+    }
+
+    .particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .content-layer {
+      position: relative;
+      z-index: 2;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Particle Background -->
+  <div id="particle-container" class="particle-canvas"></div>
+
+  <div class="content-layer">
+    <!-- Navigation -->
+    <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center">
+              <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+            </div>
+            <h1 class="font-cinzel text-xl font-semibold text-forest">
+              Session Scheduler
+            </h1>
+          </div>
+
+          <div class="hidden md:flex items-center space-x-8">
+            <a href="dashboard.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a>            <a href="participate.html" class="text-gray-600 hover:text-forest transition-colors">Partecipa</a>
+            <a href="manage.html" class="text-gray-600 hover:text-forest transition-colors" id="nav-manage">Gestisci</a>
+          </div>
+
+          <div id="user-menu" class="flex items-center space-x-4">
+            <!-- User menu will be populated by auth-utils.js -->
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="aurora-bg py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <h2 class="font-cinzel text-4xl font-bold text-forest mb-4">
+            Create New Campaign
+          </h2>
+          <p class="text-lg text-gray-700 max-w-2xl mx-auto">
+            Set up your adventure scheduling poll and gather availability from
+            your party members
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress Indicator -->
+    <section class="py-8 bg-white/50">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-center space-x-8">
+          <div class="flex items-center">
+            <div class="step-indicator step-active" id="step-1-indicator">
+              1
+            </div>
+            <span class="ml-3 text-sm font-medium text-forest">Campaign Details</span>
+          </div>
+          <div class="w-16 h-1 bg-gray-200"></div>
+          <div class="flex items-center">
+            <div class="step-indicator step-inactive" id="step-2-indicator">
+              2
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-500">Data Range</span>
+          </div>
+          <div class="w-16 h-1 bg-gray-200"></div>
+          <div class="flex items-center">
+            <div class="step-indicator step-inactive" id="step-3-indicator">
+              3
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-500">Ora Preferences</span>
+          </div>
+          <div class="w-16 h-1 bg-gray-200"></div>
+          <div class="flex items-center">
+            <div class="step-indicator step-inactive" id="step-4-indicator">
+              4
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-500">Invite Players</span>
+          </div>
+          <div class="w-16 h-1 bg-gray-200"></div>
+          <div class="flex items-center">
+            <div class="step-indicator step-inactive" id="step-5-indicator">
+              5
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-500">Review</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Form Container -->
+    <section class="py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-white rounded-2xl shadow-2xl mystical-glow p-8">
+          <form id="poll-creation-form">
+            <!-- Step 1: Campaign Details -->
+            <div class="form-step active" id="step-1">
+              <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
+                Campaign Information
+              </h3>
+
+              <div class="space-y-6">
+                <div>
+                  <label for="campaign-title" class="block text-sm font-semibold text-gray-700 mb-2">
+                    Campaign Name *
+                  </label>
+                  <input type="text" id="campaign-title" name="title" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
+                    placeholder="e.g., Tomb of Annihilation" />
+                  <p class="text-sm text-gray-500 mt-1">
+                    Give your adventure a memorable name
+                  </p>
+                </div>
+
+                <div>
+                  <label for="campaign-description" class="block text-sm font-semibold text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea id="campaign-description" name="description" rows="4"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
+                    placeholder="Brief description of your campaign, session goals, or any important notes..."></textarea>
+                  <p class="text-sm text-gray-500 mt-1">
+                    Help your players understand what to expect
+                  </p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="session-duration" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Session Duration *
+                    </label>
+                    <select id="session-duration" name="duration" required
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
+                      <option value="">Select duration</option>
+                      <option value="120">2 hours</option>
+                      <option value="180">3 hours</option>
+                      <option value="240">4 hours</option>
+                      <option value="300">5 hours</option>
+                      <option value="360">6 hours</option>
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">
+                      How long will each session run?
+                    </p>
+                  </div>
+
+                  <div>
+                    <label for="campaign-type" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Campaign Type
+                    </label>
+                    <select id="campaign-type" name="type"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
+                      <option value="one-shot">One-Shot Adventure</option>
+                      <option value="short-campaign">
+                        Short Campaign (2-6 sessions)
+                      </option>
+                      <option value="long-campaign">
+                        Long Campaign (7+ sessions)
+                      </option>
+                      <option value="ongoing">Ongoing Campaign</option>
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">
+                      Help players understand the commitment level
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2: Date Range -->
+            <div class="form-step" id="step-2">
+              <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
+                Select Date Range
+              </h3>
+
+              <div class="space-y-6">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-3">
+                    Selection Mode
+                  </label>
+                  <div class="flex space-x-4 mb-6">
+                    <label class="flex-1 cursor-pointer">
+                      <input type="radio" name="dateMode" value="day" class="peer sr-only" checked
+                        onchange="pollCreator.updateDateMode('day')">
+                      <div
+                        class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
+                        <div class="font-semibold">Specific Dates</div>
+                        <div class="text-xs text-gray-500 mt-1">Select individual days</div>
+                      </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                      <input type="radio" name="dateMode" value="week" class="peer sr-only"
+                        onchange="pollCreator.updateDateMode('week')">
+                      <div
+                        class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
+                        <div class="font-semibold">Whole Week</div>
+                        <div class="text-xs text-gray-500 mt-1">Mon - Sun</div>
+                      </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                      <input type="radio" name="dateMode" value="month" class="peer sr-only"
+                        onchange="pollCreator.updateDateMode('month')">
+                      <div
+                        class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
+                        <div class="font-semibold">Whole Month</div>
+                        <div class="text-xs text-gray-500 mt-1">Entire month</div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <label for="date-range" class="block text-sm font-semibold text-gray-700 mb-2">
+                    Available Dates *
+                  </label>
+                  <input type="text" id="date-range" name="dateRange" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
+                    placeholder="Select dates..." />
+                  <p class="text-sm text-gray-500 mt-1">
+                    Choose the period when you're available to run sessions
+                  </p>
+                </div>
+
+                <div class="bg-amber/10 p-6 rounded-lg">
+                  <h4 class="font-semibold text-forest mb-3">
+                    📅 Date Range Tips
+                  </h4>
+                  <ul class="space-y-2 text-sm text-gray-700">
+                    <li>
+                      • Select a range that gives players enough time to
+                      respond (3-7 days)
+                    </li>
+                    <li>• Consider holidays and common vacation periods</li>
+                    <li>
+                      • For recurring campaigns, select dates for the next 2-4
+                      weeks
+                    </li>
+                    <li>
+                      • Weekend sessions are popular but weekday evenings work
+                      too
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Time Preferences -->
+            <div class="form-step" id="step-3">
+              <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
+                Time Preferences
+              </h3>
+
+              <div class="space-y-6">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-4">
+                    Preferred Session Times *
+                  </label>
+                  <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3" id="time-slots">
+                    <!-- Time slots will be generated by JavaScript -->
+                  </div>
+                  <p class="text-sm text-gray-500 mt-3">
+                    Select all time slots when you'd prefer to run sessions
+                  </p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="timezone" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Your Timezone *
+                    </label>
+                    <select id="timezone" name="timezone" required
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
+                      <option value="">Select timezone</option>
+                      <option value="America/New_York">
+                        Eastern Time (EST/EDT)
+                      </option>
+                      <option value="America/Chicago">
+                        Central Time (CST/CDT)
+                      </option>
+                      <option value="America/Denver">
+                        Mountain Time (MST/MDT)
+                      </option>
+                      <option value="America/Los_Angeles">
+                        Pacific Time (PST/PDT)
+                      </option>
+                      <option value="Europe/London">
+                        Greenwich Mean Time (GMT)
+                      </option>
+                      <option value="Europe/Paris">
+                        Central European Time (CET)
+                      </option>
+                      <option value="Europe/Rome" selected>
+                        Central European Time - Italy (CET/CEST)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="recurring-pattern" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Recurring Pattern
+                    </label>
+                    <select id="recurring-pattern" name="recurringPattern"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
+                      <option value="flexible">Flexible Schedule</option>
+                      <option value="weekly">Weekly Sessions</option>
+                      <option value="biweekly">Bi-weekly Sessions</option>
+                      <option value="monthly">Monthly Sessions</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4: Invite Players -->
+            <div class="form-step" id="step-4">
+              <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
+                Invite Players
+              </h3>
+
+              <div class="space-y-6">
+                <div>
+                  <label for="player-emails" class="block text-sm font-semibold text-gray-700 mb-2">
+                    Player Email Addresses *
+                  </label>
+                  <textarea id="player-emails" name="emails" rows="4" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
+                    placeholder="Enter email addresses separated by commas or line breaks&#10;e.g., player1@email.com, player2@email.com"></textarea>
+                  <p class="text-sm text-gray-500 mt-1">
+                    Invite 3-6 players for optimal group size
+                  </p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="response-deadline" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Response Deadline
+                    </label>
+                    <input type="date" id="response-deadline" name="deadline"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent" />
+                    <p class="text-sm text-gray-500 mt-1">
+                      Optional - Set when responses are due
+                    </p>
+                  </div>
+
+                  <div>
+                    <label for="privacy-setting" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Privacy Setting
+                    </label>
+                    <select id="privacy-setting" name="privacy"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
+                      <option value="private">
+                        Private - Invitation only
+                      </option>
+                      <option value="public">
+                        Public - Anyone with link can join
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="bg-emerald/10 p-6 rounded-lg">
+                  <h4 class="font-semibold text-forest mb-3">
+                    🎲 Invitation Tips
+                  </h4>
+                  <ul class="space-y-2 text-sm text-gray-700">
+                    <li>
+                      • Send invitations to players you know are interested
+                    </li>
+                    <li>
+                      • Include new players who might enjoy the campaign
+                    </li>
+                    <li>
+                      • Consider players' experience levels and preferences
+                    </li>
+                    <li>• A balanced party usually has 4-5 players</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5: Review -->
+            <div class="form-step" id="step-5">
+              <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
+                Review & Create
+              </h3>
+
+              <div class="space-y-6" id="review-content">
+                <!-- Review content will be populated by JavaScript -->
+              </div>
+
+              <div class="bg-mystic/10 p-6 rounded-lg">
+                <h4 class="font-semibold text-forest mb-3">
+                  ✨ Ready to Launch Your Adventure?
+                </h4>
+                <p class="text-sm text-gray-700 mb-4">
+                  Once you create this poll, invited players will receive
+                  email notifications to mark their availability. You'll be
+                  able to track responses in real-time and finalize the
+                  perfect session time.
+                </p>
+                <div class="flex items-center space-x-4">
+                  <button type="submit" class="bg-forest text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
+                    Create Campaign Poll
+                  </button>
+                  <button type="button" onclick="pollCreator.goToStep(4)"
+                    class="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                    Back to Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex justify-between items-center pt-8 border-t border-gray-200">
+              <button type="button" id="prev-btn" onclick="pollCreator.previousStep()"
+                class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                style="display: none">
+                ← Previous
+              </button>
+
+              <div class="flex-1"></div>
+
+              <button type="button" id="next-btn" onclick="pollCreator.nextStep()"
+                class="bg-amber text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
+                Next →
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-forest text-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="flex items-center justify-center space-x-4 mb-6">
+          <div class="w-10 h-10 bg-gradient-to-br from-amber to-mystic rounded-lg flex items-center justify-center">
+            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+          </div>
+          <h4 class="font-cinzel text-xl font-semibold">Pianificatore Sessioni</h4>
+        </div>
+        <p class="text-amber/80 mb-4">
+          Bringing adventurers together, one session at a time
+        </p>
+        <p class="text-sm text-amber/60">
+          © 2025 Pianificatore Sessioni D&D. Creato con precisione magica.
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/app.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/poll-creator.js"></script>
+
+  <!-- Require Authentication -->
+  <script>
+    // Check authentication before allowing access to this page
+    document.addEventListener('DOMContentLoaded', async () => {
+      const isAuthenticated = await authManager.requireAuth('/create-poll.html');
+      if (!isAuthenticated) {
+        // User will be redirected to login by requireAuth
+        return;
+      }
+
+      // User is authenticated, page can continue loading
+      console.log('User authenticated, poll creation page loaded');
+    });
+  </script>
+</body>
+
+</html>

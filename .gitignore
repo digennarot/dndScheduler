@@ -1,0 +1,46 @@
+# Compiled output
+/target/
+target/
+**/*.rs.bk
+
+# Database files (sensitive data)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Environment files (sensitive credentials)
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.claude
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Rust specific
+Cargo.lock

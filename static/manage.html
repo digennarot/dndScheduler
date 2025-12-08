@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestisci Sessioni - Pianificatore Sessioni D&D</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- Core Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dnd-black': '#0a0a0a',
+                        'dnd-dark': '#1a1a1a',
+                        'dnd-darker': '#121212',
+                        'dnd-red': '#dc2626',
+                        'dnd-red-dark': '#991b1b',
+                        'dnd-red-light': '#ef4444',
+                        'dnd-crimson': '#8b0000',
+                        'dnd-gold': '#fbbf24',
+                        // Legacy mappings
+                        'forest': '#dc2626',
+                        'amber': '#fbbf24',
+                        'mystic': '#8b0000',
+                        'cream': '#f5f5f5',
+                        'emerald': '#dc2626',
+                        'copper': '#d97706',
+                        'deep-red': '#991b1b'
+                    },
+                    fontFamily: {
+                        'cinzel': ['Cinzel', 'serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- D&D Theme CSS -->
+    <link rel="stylesheet" href="css/dnd-theme.css">
+
+    <style>
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: rgba(220, 38, 38, 0.2);
+            color: var(--dnd-red);
+        }
+
+        .status-finalized {
+            background: rgba(139, 0, 0, 0.2);
+            color: var(--dnd-crimson);
+        }
+
+        .status-cancelled {
+            background: rgba(153, 27, 27, 0.2);
+            color: var(--dnd-red-dark);
+        }
+
+        .overlap-heatmap {
+            display: grid;
+            grid-template-columns: 80px repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border-color);
+            border-radius: 8px;
+            padding: 2px;
+            overflow-x: auto;
+        }
+
+        .heatmap-cell {
+            background: var(--dnd-darker);
+            color: var(--text-secondary);
+            min-height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            position: relative;
+        }
+
+        .heatmap-cell.header {
+            background: var(--dnd-red);
+            color: white;
+            font-weight: 600;
+        }
+
+        .heatmap-cell.time-label {
+            background: var(--dnd-crimson);
+            color: white;
+            font-weight: 500;
+        }
+
+        .overlap-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(107, 91, 149, 0.9);
+            color: white;
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .content-layer {
+            position: relative;
+            z-index: 2;
+        }
+
+        .action-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .action-button.primary {
+            background: linear-gradient(135deg, var(--dnd-red) 0%, var(--dnd-red-dark) 100%);
+            color: white;
+            box-shadow: var(--shadow-red);
+        }
+
+        .action-button.primary:hover {
+            background: linear-gradient(135deg, var(--dnd-red-light) 0%, var(--dnd-red) 100%);
+            box-shadow: var(--shadow-red-lg);
+            transform: translateY(-1px);
+        }
+
+        .action-button.secondary {
+            background: var(--dnd-gold);
+            color: var(--dnd-black);
+        }
+
+        .action-button.secondary:hover {
+            background: #fcd34d;
+            transform: translateY(-1px);
+        }
+
+        .action-button.danger {
+            background: var(--dnd-red-dark);
+            color: white;
+        }
+
+        .action-button.danger:hover {
+            background: var(--dnd-crimson);
+            transform: translateY(-1px);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--dnd-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .overlap-heatmap {
+                grid-template-columns: 60px repeat(7, 1fr);
+                font-size: 9px;
+            }
+
+            .heatmap-cell {
+                min-height: 30px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Particle Background -->
+    <div id="particle-container" class="particle-canvas"></div>
+
+    <div class="content-layer">
+        <!-- Navigation -->
+        <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center">
+                            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                        </div>
+                        <h1 class="font-cinzel text-xl font-semibold text-forest">Pianificatore Sessioni</h1>
+                    </div>
+
+                    <div class="hidden md:flex items-center space-x-8">
+                        <a href="index.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a>
+                        <a href="create-poll.html" class="text-gray-600 hover:text-forest transition-colors">Crea
+                            Sondaggio</a>
+                        <a href="participate.html"
+                            class="text-gray-600 hover:text-forest transition-colors">Partecipa</a>
+                        <a href="manage.html" class="text-forest font-medium border-b-2 border-amber pb-1" id="nav-manage">Gestisci</a>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <a href="admin.html" class="text-gray-600 hover:text-forest transition-colors">
+                            Amministrazione
+                        </a>
+                        <button onclick="window.location.href='index.html'"
+                            class="text-gray-600 hover:text-forest transition-colors">
+                            ← Torna alla Bacheca
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Header Section -->
+        <section class="aurora-bg py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="font-cinzel text-4xl font-bold text-forest mb-4">Gestisci le Tue Campagne</h2>
+                    <p class="text-lg text-gray-700 max-w-2xl mx-auto">
+                        Monitora le risposte, analizza la disponibilità e finalizza gli orari delle sessioni per le tue
+                        avventure
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Management Interface -->
+        <section class="py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- Main Content -->
+                    <div class="lg:col-span-2 space-y-8">
+                        <!-- Active Campaigns List -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="font-cinzel text-xl font-bold text-forest">Campagne Attive</h3>
+                                <button onclick="window.location.href='create-poll.html'" class="action-button primary">
+                                    + Crea Nuova Campagna
+                                </button>
+                            </div>
+                            <div id="sessions-list" class="space-y-4">
+                                <!-- Le sessioni saranno caricate qui da JavaScript -->
+                                <div class="text-center py-12">
+                                    <div class="text-gray-400 text-6xl mb-4">⏳</div>
+                                    <h3 class="text-xl font-semibold text-gray-600 mb-2">Caricamento...</h3>
+                                    <p class="text-gray-500">Attendere mentre carichiamo le tue campagne.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Session View -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6" id="session-detail"
+                            style="display: none;">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="font-cinzel text-xl font-bold text-forest" id="detail-title">Dettagli
+                                        Sessione</h3>
+                                    <p class="text-gray-600" id="detail-description">Descrizione sessione</p>
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button onclick="sessionManager.editSession()" class="action-button secondary">
+                                        Modifica Sessione
+                                    </button>
+                                    <button onclick="sessionManager.finalizeSession()" class="action-button primary"
+                                        id="finalize-btn">
+                                        Finalizza Orario
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Overlap Analysis -->
+                            <div class="mb-6">
+                                <h4 class="font-semibold text-forest mb-4">Analisi Sovrapposizione Disponibilità</h4>
+                                <div class="overlap-heatmap" id="overlap-heatmap">
+                                    <!-- La mappa termica sarà generata qui -->
+                                </div>
+                            </div>
+
+                            <!-- Best Times -->
+                            <div class="mb-6">
+                                <h4 class="font-semibold text-forest mb-4">Orari Consigliati</h4>
+                                <div class="grid md:grid-cols-2 gap-4" id="recommended-times">
+                                    <!-- Gli orari consigliati saranno caricati qui -->
+                                </div>
+                            </div>
+
+                            <!-- Participant Responses -->
+                            <div>
+                                <h4 class="font-semibold text-forest mb-4">Risposte Partecipanti</h4>
+                                <div class="space-y-3" id="participant-responses">
+                                    <!-- Le risposte dei partecipanti saranno caricate qui -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="space-y-6">
+                        <!-- Quick Stats -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-4">Statistiche Rapide</h4>
+
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Sessioni Attive</span>
+                                    <span class="font-bold text-2xl text-emerald" id="active-count">0</span>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Sessioni Finalizzate</span>
+                                    <span class="font-bold text-2xl text-mystic" id="finalized-count">0</span>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Tasso Risposta Medio</span>
+                                    <span class="font-bold text-2xl text-amber" id="avg-response-rate">0%</span>
+                                </div>
+
+                                <div class="pt-4 border-t border-gray-200">
+                                    <div class="text-sm text-gray-600 mb-2">Attività di Questa Settimana</div>
+                                    <div class="h-16" id="activity-chart"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-4">Attività Recente</h4>
+
+                            <div class="space-y-3" id="recent-activity">
+                                <!-- Attività recente sarà caricata qui -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Finalize Modal -->
+        <div id="finalize-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="font-cinzel text-xl font-bold text-forest">Finalizza Orario Sessione</h3>
+                    <button onclick="sessionManager.closeFinalizeModal()"
+                        class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Seleziona Orario Finale</label>
+                        <div class="space-y-2" id="time-options">
+                            <!-- Le opzioni orarie saranno popolate qui -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="session-notes" class="block text-sm font-semibold text-gray-700 mb-2">Note Sessione
+                            (Opzionale)</label>
+                        <textarea id="session-notes" rows="3"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
+                            placeholder="Aggiungi note importanti per la sessione..."></textarea>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button onclick="sessionManager.confirmFinalize()" class="action-button primary flex-1">
+                            Conferma e Notifica Giocatori
+                        </button>
+                        <button onclick="sessionManager.closeFinalizeModal()" class="action-button secondary">
+                            Annulla
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-forest text-white py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div class="flex items-center justify-center space-x-4 mb-6">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-amber to-mystic rounded-lg flex items-center justify-center">
+                        <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                    </div>
+                    <h4 class="font-cinzel text-xl font-semibold">Pianificatore Sessioni</h4>
+                </div>
+                <p class="text-amber/80 mb-4">Riuniamo avventurieri, una sessione alla volta</p>
+                <p class="text-sm text-amber/60">© 2025 Pianificatore Sessioni D&D. Creato con precisione magica.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/nav-protection.js"></script>
+
+    <script src="js/app.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/session-manager.js"></script>
+</body>
+
+</html>

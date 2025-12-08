@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - D&D Scheduler</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'parchment': '#f4e4c1',
+            'ink': '#2c1810',
+            'amber': '#d4a574',
+            'dark-bg': '#0f172a',
+          },
+          fontFamily: {
+            'cinzel': ['Cinzel', 'serif'],
+            'inter': ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .policy-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+      backdrop-filter: blur(10px);
+    }
+
+    .section-title {
+      color: #d4a574;
+      font-family: 'Cinzel', serif;
+      border-bottom: 2px solid rgba(212, 165, 116, 0.3);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .data-table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+    }
+
+    .data-table th {
+      background: rgba(212, 165, 116, 0.1);
+      color: #d4a574;
+      padding: 0.75rem;
+      text-align: left;
+      border: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .data-table td {
+      padding: 0.75rem;
+      border: 1px solid rgba(212, 165, 116, 0.1);
+      color: #e2e8f0;
+    }
+
+    .highlight-box {
+      background: rgba(212, 165, 116, 0.05);
+      border-left: 4px solid #d4a574;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-gray-200">
+  <!-- Header -->
+  <header class="border-b border-amber/20 bg-dark-bg/50 backdrop-blur-md sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <svg class="w-10 h-10 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <h1 class="font-cinzel text-2xl font-bold text-amber">Privacy Policy</h1>
+        </div>
+        <a href="/index.html" class="text-amber hover:text-amber/80 transition">
+          ← Torna alla Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-12 max-w-4xl">
+    <!-- Introduction -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-2xl font-bold mb-4">Informativa sulla Privacy</h2>
+      <p class="text-gray-300 mb-4">
+        La presente Informativa sulla Privacy descrive come D&D Scheduler ("noi", "nostro" o "il Servizio")
+        raccoglie, utilizza e protegge i tuoi dati personali in conformità con il Regolamento Generale sulla
+        Protezione dei Dati (GDPR - Regolamento UE 2016/679).
+      </p>
+      <p class="text-gray-300">
+        <strong class="text-amber">Ultimo aggiornamento:</strong> 7 Dicembre 2025
+      </p>
+    </div>
+
+    <!-- Data Controller -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Titolare del Trattamento</h2>
+      <p class="text-gray-300 mb-4">
+        Il Titolare del trattamento dei dati è:
+      </p>
+      <div class="highlight-box">
+        <p class="text-gray-300"><strong class="text-amber">D&D Scheduler</strong></p>
+        <p class="text-gray-300">Email: <a href="mailto:privacy@cronachednd.it"
+            class="text-amber hover:underline">privacy@cronachednd.it</a></p>
+      </div>
+    </div>
+
+    <!-- Data Collected -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Dati Raccolti</h2>
+
+      <h3 class="text-lg font-semibold text-amber mb-3">Dati forniti direttamente dall'utente:</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo di Dato</th>
+            <th>Finalità</th>
+            <th>Base Giuridica</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Nome e indirizzo email</td>
+            <td>Creazione account e autenticazione</td>
+            <td>Esecuzione contratto (Art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Password (hash crittografato)</td>
+            <td>Sicurezza dell'accesso</td>
+            <td>Esecuzione contratto (Art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Disponibilità per sessioni</td>
+            <td>Pianificazione campagne D&D</td>
+            <td>Esecuzione contratto (Art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Preferenze di consenso</td>
+            <td>Conformità GDPR</td>
+            <td>Obbligo legale (Art. 6.1.c)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="text-lg font-semibold text-amber mt-6 mb-3">Dati raccolti automaticamente:</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo di Dato</th>
+            <th>Finalità</th>
+            <th>Base Giuridica</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Indirizzo IP</td>
+            <td>Sicurezza e prevenzione abusi</td>
+            <td>Interesse legittimo (Art. 6.1.f)</td>
+          </tr>
+          <tr>
+            <td>Log di accesso</td>
+            <td>Risoluzione problemi e sicurezza</td>
+            <td>Interesse legittimo (Art. 6.1.f)</td>
+          </tr>
+          <tr>
+            <td>Dati di sessione</td>
+            <td>Mantenimento autenticazione</td>
+            <td>Esecuzione contratto (Art. 6.1.b)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Data Retention -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Conservazione dei Dati</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo di Dato</th>
+            <th>Periodo di Conservazione</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dati dell'account</td>
+            <td>Fino alla cancellazione dell'account + 30 giorni</td>
+          </tr>
+          <tr>
+            <td>Log di sicurezza</td>
+            <td>12 mesi</td>
+          </tr>
+          <tr>
+            <td>Record di consenso</td>
+            <td>5 anni (obbligo legale)</td>
+          </tr>
+          <tr>
+            <td>Backup</td>
+            <td>30 giorni dopo l'eliminazione</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- User Rights -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">I Tuoi Diritti</h2>
+      <p class="text-gray-300 mb-4">
+        In conformità con il GDPR, hai i seguenti diritti riguardo ai tuoi dati personali:
+      </p>
+
+      <div class="space-y-4">
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">📋 Diritto di Accesso (Art. 15)</h3>
+          <p class="text-gray-300">Puoi richiedere una copia di tutti i tuoi dati personali in nostro possesso.</p>
+        </div>
+
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">✏️ Diritto di Rettifica (Art. 16)</h3>
+          <p class="text-gray-300">Puoi correggere i tuoi dati personali dalla pagina del tuo profilo.</p>
+        </div>
+
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">🗑️ Diritto alla Cancellazione (Art. 17)</h3>
+          <p class="text-gray-300">Puoi eliminare il tuo account e tutti i dati associati in qualsiasi momento.</p>
+        </div>
+
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">📦 Diritto alla Portabilità (Art. 20)</h3>
+          <p class="text-gray-300">Puoi scaricare tutti i tuoi dati in formato JSON dalla pagina del tuo profilo.</p>
+        </div>
+
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">🚫 Diritto di Opposizione (Art. 21)</h3>
+          <p class="text-gray-300">Puoi opporti al trattamento dei tuoi dati per finalità di marketing in qualsiasi
+            momento.</p>
+        </div>
+
+        <div class="highlight-box">
+          <h3 class="font-semibold text-amber mb-2">⏸️ Diritto alla Limitazione (Art. 18)</h3>
+          <p class="text-gray-300">Puoi richiedere la limitazione del trattamento dei tuoi dati in determinate
+            circostanze.</p>
+        </div>
+      </div>
+
+      <div class="mt-6 p-4 bg-dark-bg/50 rounded-lg border border-amber/20">
+        <p class="text-gray-300">
+          <strong class="text-amber">Come esercitare i tuoi diritti:</strong><br>
+          Accedi al tuo <a href="/profile.html" class="text-amber hover:underline">profilo</a> per gestire i tuoi dati,
+          oppure contattaci a <a href="mailto:privacy@cronachednd.it"
+            class="text-amber hover:underline">privacy@cronachednd.it</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Data Sharing -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Condivisione dei Dati</h2>
+      <p class="text-gray-300 mb-4">
+        <strong class="text-amber">Non vendiamo i tuoi dati.</strong> I tuoi dati personali possono essere condivisi
+        solo:
+      </p>
+      <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4">
+        <li>Con altri partecipanti della stessa campagna D&D (solo nome e disponibilità)</li>
+        <li>Con autorità competenti se richiesto dalla legge</li>
+        <li>Con fornitori di servizi tecnici essenziali (hosting), con adeguate garanzie contrattuali</li>
+      </ul>
+    </div>
+
+    <!-- Security -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Sicurezza dei Dati</h2>
+      <p class="text-gray-300 mb-4">
+        Adottiamo misure tecniche e organizzative per proteggere i tuoi dati:
+      </p>
+      <ul class="list-disc list-inside text-gray-300 space-y-2 ml-4">
+        <li>Crittografia delle password con bcrypt</li>
+        <li>Connessioni HTTPS per tutti i trasferimenti di dati</li>
+        <li>Rate limiting per prevenire attacchi brute-force</li>
+        <li>Audit logging per monitorare accessi e modifiche</li>
+        <li>Backup regolari con crittografia</li>
+      </ul>
+    </div>
+
+    <!-- Complaints -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Reclami</h2>
+      <p class="text-gray-300 mb-4">
+        Se ritieni che il trattamento dei tuoi dati violi il GDPR, hai il diritto di presentare un reclamo all'autorità
+        di controllo competente. In Italia, l'autorità è il:
+      </p>
+      <div class="highlight-box">
+        <p class="text-gray-300">
+          <strong class="text-amber">Garante per la Protezione dei Dati Personali</strong><br>
+          Website: <a href="https://www.garanteprivacy.it" target="_blank"
+            class="text-amber hover:underline">www.garanteprivacy.it</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Updates -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Aggiornamenti</h2>
+      <p class="text-gray-300">
+        Potremmo aggiornare questa Privacy Policy periodicamente. Le modifiche significative saranno comunicate
+        via email o tramite notifica nell'app. L'uso continuato del servizio dopo le modifiche costituisce
+        accettazione della nuova Privacy Policy.
+      </p>
+    </div>
+
+    <!-- Contact -->
+    <div class="policy-card rounded-xl p-8">
+      <h2 class="section-title text-xl font-bold">Contatti</h2>
+      <p class="text-gray-300 mb-4">
+        Per qualsiasi domanda riguardo questa Privacy Policy o il trattamento dei tuoi dati:
+      </p>
+      <ul class="text-gray-300 space-y-2">
+        <li>• <strong class="text-amber">Email:</strong> <a href="mailto:privacy@cronachednd.it"
+            class="text-amber hover:underline">privacy@cronachednd.it</a></li>
+        <li>• <strong class="text-amber">Sito Web:</strong> <a href="/index.html" class="text-amber hover:underline">D&D
+            Scheduler</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-amber/20 bg-dark-bg/50 backdrop-blur-md mt-12">
+    <div class="container mx-auto px-4 py-8">
+      <div class="text-center text-gray-400">
+        <p>&copy; 2025 D&D Scheduler. Tutti i diritti riservati.</p>
+        <div class="mt-4 space-x-4">
+          <a href="/privacy-policy.html" class="text-amber hover:underline">Privacy Policy</a>
+          <span>|</span>
+          <a href="/cookie-policy.html" class="text-amber hover:underline">Cookie Policy</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/cookie-consent.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partecipa alla Sessione - Pianificatore Sessioni D&D</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- Core Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dnd-black': '#0a0a0a',
+                        'dnd-dark': '#1a1a1a',
+                        'dnd-darker': '#121212',
+                        'dnd-red': '#dc2626',
+                        'dnd-red-dark': '#991b1b',
+                        'dnd-red-light': '#ef4444',
+                        'dnd-crimson': '#8b0000',
+                        'dnd-gold': '#fbbf24',
+                        // Legacy mappings
+                        'forest': '#dc2626',
+                        'amber': '#fbbf24',
+                        'mystic': '#8b0000',
+                        'cream': '#f5f5f5',
+                        'emerald': '#dc2626',
+                        'copper': '#d97706',
+                        'deep-red': '#991b1b'
+                    },
+                    fontFamily: {
+                        'cinzel': ['Cinzel', 'serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- D&D Theme CSS -->
+    <link rel="stylesheet" href="css/dnd-theme.css">
+
+    <style>
+        .availability-grid {
+            display: grid;
+            gap: 2px;
+            background: var(--border-color);
+            border-radius: 8px;
+            padding: 2px;
+            overflow-x: auto;
+        }
+
+        .grid-cell {
+            background: var(--dnd-darker);
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+        }
+
+        .grid-cell:hover {
+            background: rgba(220, 38, 38, 0.2);
+        }
+
+        .grid-cell.available {
+            background: rgba(220, 38, 38, 0.8);
+            color: white;
+        }
+
+        .grid-cell.busy {
+            background: rgba(153, 27, 27, 0.8);
+            color: white;
+        }
+
+        .grid-cell.tentative {
+            background: rgba(251, 191, 36, 0.8);
+            color: var(--dnd-black);
+        }
+
+        .grid-cell.header {
+            background: var(--dnd-red);
+            color: white;
+            font-weight: 600;
+            cursor: default;
+        }
+
+        .grid-cell.time-label {
+            background: var(--dnd-crimson);
+            color: white;
+            font-weight: 500;
+            cursor: default;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 16px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+
+        .legend-available {
+            background: rgba(220, 38, 38, 0.8);
+        }
+
+        .legend-tentative {
+            background: rgba(251, 191, 36, 0.8);
+        }
+
+        .legend-busy {
+            background: rgba(153, 27, 27, 0.8);
+        }
+
+        .overlap-indicator {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--dnd-gold);
+            color: var(--dnd-black);
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-responded {
+            background-color: var(--dnd-red);
+            box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+        }
+
+        .status-pending {
+            background-color: var(--dnd-gold);
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+        }
+
+        .status-confirmed {
+            background-color: var(--dnd-crimson);
+            box-shadow: 0 0 8px rgba(139, 0, 0, 0.5);
+        }
+
+        .bulk-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .bulk-action-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--dnd-darker);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-action-btn:hover {
+            background: rgba(220, 38, 38, 0.1);
+            border-color: var(--dnd-red);
+            color: var(--dnd-red-light);
+        }
+
+        @media (max-width: 768px) {
+            .availability-grid {
+                grid-template-columns: 60px repeat(7, 1fr);
+                font-size: 10px;
+            }
+
+            .grid-cell {
+                min-height: 35px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Particle Background -->
+    <div id="particle-container" class="particle-canvas"></div>
+
+    <div class="content-layer">
+        <!-- Navigation -->
+        <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center">
+                            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                        </div>
+                        <h1 class="font-cinzel text-xl font-semibold text-forest">Pianificatore Sessioni</h1>
+                    </div>
+
+                    <div class="hidden md:flex items-center space-x-8">
+                        <a href="index.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a>
+                        <a href="create-poll.html" class="text-gray-600 hover:text-forest transition-colors">Create
+                            Poll</a>
+                        <a href="participate.html" class="text-forest font-medium border-b-2 border-amber pb-1">Join
+                            Session</a>
+                        <a href="manage.html" class="text-gray-600 hover:text-forest transition-colors" id="nav-manage">Gestisci</a>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <!-- User Info Display -->
+                        <div id="user-display" style="display: none;"
+                            class="flex items-center space-x-2 px-3 py-1 bg-emerald/10 rounded-lg border border-emerald/20">
+                        </div>
+
+                        <!-- Login Link (shown when not logged in) -->
+                        <a href="/login.html" id="login-link" style="display: none;"
+                            class="text-gray-600 hover:text-forest transition-colors font-medium">
+                            Login
+                        </a>
+
+                        <!-- Logout Button (shown when logged in) -->
+                        <button id="logout-btn" style="display: none;"
+                            class="text-gray-600 hover:text-deep-red transition-colors font-medium">
+                            Logout
+                        </button>
+
+                        <a href="admin.html" class="text-gray-600 hover:text-forest transition-colors">
+                            Admin
+                        </a>
+                        <button onclick="window.location.href='index.html'"
+                            class="text-gray-600 hover:text-forest transition-colors">
+                            ← Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Header Section -->
+        <section class="aurora-bg py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h2 class="font-cinzel text-4xl font-bold text-forest mb-4">Indica la Tua Disponibilità</h2>
+                    <p class="text-lg text-gray-700 max-w-2xl mx-auto">
+                        Help your party find the perfect time for your next adventure
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Session Selection -->
+        <section class="py-8 bg-white/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="bg-white rounded-xl shadow-lg mystical-glow p-6 mb-8">
+                    <h3 class="font-cinzel text-xl font-semibold text-forest mb-4">Select a Session to Join</h3>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="session-list">
+                        <!-- Le sessioni saranno caricate qui -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Availability Interface -->
+        <section class="py-12" id="availability-section" style="display: none;">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- Main Availability Grid -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="font-cinzel text-2xl font-bold text-forest" id="campaign-title">Campaign
+                                        Name</h3>
+                                    <p class="text-gray-600 mt-1" id="campaign-description">Campaign description</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-500">DM</div>
+                                    <div class="font-semibold text-forest" id="dm-name">DM Name</div>
+                                </div>
+                            </div>
+
+                            <!-- Legend -->
+                            <div class="flex flex-wrap items-center mb-6 p-4 bg-gray-50 rounded-lg">
+                                <div class="legend-item">
+                                    <div class="legend-color legend-available"></div>
+                                    <span>Available</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color legend-tentative"></div>
+                                    <span>Tentative</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color legend-busy"></div>
+                                    <span>Busy</span>
+                                </div>
+                                <div class="ml-auto text-sm text-gray-600">
+                                    Click cells to mark availability
+                                </div>
+                            </div>
+
+                            <!-- Bulk Actions -->
+                            <div class="mb-4">
+                                <div class="bulk-actions">
+                                    <button class="bulk-action-btn" onclick="availabilityManager.markAllAvailable()">
+                                        Mark All Available
+                                    </button>
+                                    <button class="bulk-action-btn" onclick="availabilityManager.markAllBusy()">
+                                        Mark All Busy
+                                    </button>
+                                    <button class="bulk-action-btn" onclick="availabilityManager.clearAll()">
+                                        Clear All
+                                    </button>
+                                    <button class="bulk-action-btn" onclick="availabilityManager.markWeekends()">
+                                        Weekends Only
+                                    </button>
+                                    <button class="bulk-action-btn" onclick="availabilityManager.markWeekdays()">
+                                        Weekdays Only
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Availability Grid -->
+                            <div class="availability-grid" id="availability-grid">
+                                <!-- Grid will be generated by JavaScript -->
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+                                <button onclick="availabilityManager.resetAvailability()"
+                                    class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                                    Reset
+                                </button>
+                                <div class="flex space-x-4">
+                                    <button onclick="availabilityManager.saveAsDraft()"
+                                        class="px-6 py-3 border border-amber text-amber rounded-lg font-semibold hover:bg-amber hover:text-white transition-colors">
+                                        Save Draft
+                                    </button>
+                                    <button onclick="availabilityManager.submitAvailability()"
+                                        class="bg-forest text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
+                                        Submit Availability
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="space-y-6">
+                        <!-- Group Availability -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-4">Panoramica Gruppo</h4>
+
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Giocatori Totali</span>
+                                    <span class="font-semibold text-forest" id="total-players">0</span>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Responded</span>
+                                    <span class="font-semibold text-emerald" id="responded-count">0</span>
+                                </div>
+
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-emerald h-2 rounded-full transition-all duration-300"
+                                        id="response-progress" style="width: 0%"></div>
+                                </div>
+
+                                <div class="space-y-2" id="player-status">
+                                    <!-- Lo stato del giocatore sarà caricato qui -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Best Times -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-4">Orari Migliori</h4>
+
+                            <div class="space-y-3" id="best-times">
+                                <!-- Gli orari migliori saranno calcolati e mostrati qui -->
+                            </div>
+
+                            <div class="mt-4">
+                                <div id="overlap-chart" class="h-48"></div>
+                            </div>
+                        </div>
+
+                        <!-- Session Info -->
+                        <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
+                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-4">Dettagli Sessione</h4>
+
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Duration</span>
+                                    <span class="font-medium" id="session-duration">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Timezone</span>
+                                    <span class="font-medium" id="session-timezone">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Response Deadline</span>
+                                    <span class="font-medium" id="response-deadline">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="bg-forest text-white py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div class="flex items-center justify-center space-x-4 mb-6">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-amber to-mystic rounded-lg flex items-center justify-center">
+                        <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                    </div>
+                    <h4 class="font-cinzel text-xl font-semibold">Pianificatore Sessioni</h4>
+                </div>
+                <p class="text-amber/80 mb-4">Riuniamo avventurieri, una sessione alla volta</p>
+                <p class="text-sm text-amber/60">© 2025 Pianificatore Sessioni D&D. Creato con precisione magica.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/nav-protection.js"></script>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Require authentication to access this page
+        if (!window.authManager.requireAuth('/participate.html')) {
+            // User will be redirected to login
+        }
+    </script>
+    <script src="js/app.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/availability-manager.js"></script>
+</body>
+
+</html>

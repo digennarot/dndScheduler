@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cookie Policy - D&D Scheduler</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'parchment': '#f4e4c1',
+            'ink': '#2c1810',
+            'amber': '#d4a574',
+            'dark-bg': '#0f172a',
+          },
+          fontFamily: {
+            'cinzel': ['Cinzel', 'serif'],
+            'inter': ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .policy-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+      backdrop-filter: blur(10px);
+    }
+
+    .section-title {
+      color: #d4a574;
+      font-family: 'Cinzel', serif;
+      border-bottom: 2px solid rgba(212, 165, 116, 0.3);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .cookie-table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+    }
+
+    .cookie-table th {
+      background: rgba(212, 165, 116, 0.1);
+      color: #d4a574;
+      padding: 0.75rem;
+      text-align: left;
+      border: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .cookie-table td {
+      padding: 0.75rem;
+      border: 1px solid rgba(212, 165, 116, 0.1);
+      color: #e2e8f0;
+    }
+
+    .cookie-table tr:hover {
+      background: rgba(212, 165, 116, 0.05);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-gray-200">
+  <!-- Header -->
+  <header class="border-b border-amber/20 bg-dark-bg/50 backdrop-blur-md sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <svg class="w-10 h-10 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <h1 class="font-cinzel text-2xl font-bold text-amber">Cookie Policy</h1>
+        </div>
+        <a href="/index.html" class="text-amber hover:text-amber/80 transition">
+          ← Torna alla Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-12 max-w-4xl">
+    <!-- Introduction -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-2xl font-bold mb-4">Informativa sui Cookie</h2>
+      <p class="text-gray-300 mb-4">
+        Questa Cookie Policy spiega cosa sono i cookie, come li utilizziamo, i tipi di cookie che utilizziamo
+        e come puoi gestire le tue preferenze.
+      </p>
+      <p class="text-gray-300">
+        <strong class="text-amber">Ultimo aggiornamento:</strong> 7 Dicembre 2025
+      </p>
+    </div>
+
+    <!-- What are Cookies -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Cosa sono i Cookie?</h2>
+      <p class="text-gray-300 mb-4">
+        I cookie sono piccoli file di testo che vengono memorizzati sul tuo dispositivo quando visiti un sito web.
+        Vengono ampiamente utilizzati per far funzionare i siti web in modo più efficiente e per fornire informazioni
+        ai proprietari del sito.
+      </p>
+    </div>
+
+    <!-- Types of Cookies -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Tipi di Cookie Utilizzati</h2>
+
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-amber mb-3">1. Cookie Strettamente Necessari</h3>
+        <p class="text-gray-300 mb-4">
+          Questi cookie sono essenziali per il funzionamento del sito e non possono essere disabilitati.
+          Senza questi cookie, il servizio non può funzionare correttamente.
+        </p>
+
+        <table class="cookie-table">
+          <thead>
+            <tr>
+              <th>Nome Cookie</th>
+              <th>Scopo</th>
+              <th>Durata</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>session_token</code></td>
+              <td>Mantiene la sessione di autenticazione dell'utente</td>
+              <td>7 giorni</td>
+            </tr>
+            <tr>
+              <td><code>cookie_consent</code></td>
+              <td>Memorizza le preferenze sui cookie dell'utente</td>
+              <td>1 anno</td>
+            </tr>
+            <tr>
+              <td><code>user_preferences</code></td>
+              <td>Salva le preferenze dell'interfaccia utente</td>
+              <td>1 anno</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-amber mb-3">2. Cookie Funzionali</h3>
+        <p class="text-gray-300 mb-4">
+          Questi cookie permettono al sito di ricordare le scelte che fai (come il tuo nome utente,
+          lingua o regione) e forniscono funzionalità migliorate e più personali.
+        </p>
+
+        <table class="cookie-table">
+          <thead>
+            <tr>
+              <th>Nome Cookie</th>
+              <th>Scopo</th>
+              <th>Durata</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>theme_preference</code></td>
+              <td>Memorizza la preferenza tema (chiaro/scuro)</td>
+              <td>1 anno</td>
+            </tr>
+            <tr>
+              <td><code>language</code></td>
+              <td>Memorizza la lingua preferita</td>
+              <td>1 anno</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-amber mb-3">3. Cookie Analitici</h3>
+        <p class="text-gray-300 mb-4">
+          Questi cookie ci aiutano a capire come i visitatori interagiscono con il sito raccogliendo
+          e riportando informazioni in forma anonima.
+        </p>
+
+        <table class="cookie-table">
+          <thead>
+            <tr>
+              <th>Nome Cookie</th>
+              <th>Scopo</th>
+              <th>Durata</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>analytics_session</code></td>
+              <td>Traccia le visite e le interazioni (anonimo)</td>
+              <td>30 giorni</td>
+            </tr>
+            <tr>
+              <td><code>page_views</code></td>
+              <td>Conta le visualizzazioni di pagina</td>
+              <td>30 giorni</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cookie Management -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Gestione dei Cookie</h2>
+
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-amber mb-3">Gestisci le tue Preferenze</h3>
+        <p class="text-gray-300 mb-4">
+          Puoi gestire le tue preferenze sui cookie in qualsiasi momento cliccando sul pulsante qui sotto:
+        </p>
+        <button id="open-cookie-settings"
+          class="bg-amber text-dark-bg px-6 py-3 rounded-lg font-semibold hover:bg-amber/90 transition">
+          Gestisci Preferenze Cookie
+        </button>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-amber mb-3">Impostazioni del Browser</h3>
+        <p class="text-gray-300 mb-4">
+          Puoi anche controllare e/o eliminare i cookie come desideri attraverso le impostazioni del tuo browser.
+          Puoi eliminare tutti i cookie che sono già sul tuo computer e puoi impostare la maggior parte dei browser
+          per impedire che vengano inseriti.
+        </p>
+        <p class="text-gray-300 mb-4">
+          <strong class="text-amber">Nota:</strong> Se scegli di disabilitare i cookie, alcune funzionalità del sito
+          potrebbero non funzionare correttamente.
+        </p>
+
+        <div class="bg-dark-bg/50 rounded-lg p-4 border border-amber/20">
+          <h4 class="font-semibold text-amber mb-2">Guide per Browser Comuni:</h4>
+          <ul class="space-y-2 text-gray-300">
+            <li>• <a href="https://support.google.com/chrome/answer/95647" target="_blank"
+                class="text-amber hover:underline">Google Chrome</a></li>
+            <li>• <a href="https://support.mozilla.org/it/kb/Attivare%20e%20disattivare%20i%20cookie" target="_blank"
+                class="text-amber hover:underline">Mozilla Firefox</a></li>
+            <li>• <a href="https://support.apple.com/it-it/HT201265" target="_blank"
+                class="text-amber hover:underline">Safari</a></li>
+            <li>• <a href="https://support.microsoft.com/it-it/microsoft-edge/eliminare-i-cookie-in-microsoft-edge"
+                target="_blank" class="text-amber hover:underline">Microsoft Edge</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Third Party Cookies -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Cookie di Terze Parti</h2>
+      <p class="text-gray-300 mb-4">
+        Questo sito non utilizza cookie di terze parti per tracciamento pubblicitario.
+        Tutti i cookie utilizzati sono di prima parte e servono esclusivamente al funzionamento del servizio.
+      </p>
+    </div>
+
+    <!-- Updates -->
+    <div class="policy-card rounded-xl p-8 mb-8">
+      <h2 class="section-title text-xl font-bold">Aggiornamenti a questa Policy</h2>
+      <p class="text-gray-300 mb-4">
+        Potremmo aggiornare questa Cookie Policy di tanto in tanto. Ti informeremo di eventuali modifiche
+        pubblicando la nuova Cookie Policy su questa pagina e aggiornando la data di "Ultimo aggiornamento".
+      </p>
+    </div>
+
+    <!-- Contact -->
+    <div class="policy-card rounded-xl p-8">
+      <h2 class="section-title text-xl font-bold">Contatti</h2>
+      <p class="text-gray-300 mb-4">
+        Se hai domande su questa Cookie Policy, puoi contattarci:
+      </p>
+      <ul class="text-gray-300 space-y-2">
+        <li>• <strong class="text-amber">Email:</strong> privacy@cronachednd.it</li>
+        <li>• <strong class="text-amber">Sito Web:</strong> <a href="/index.html" class="text-amber hover:underline">D&D
+            Scheduler</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-amber/20 bg-dark-bg/50 backdrop-blur-md mt-12">
+    <div class="container mx-auto px-4 py-8">
+      <div class="text-center text-gray-400">
+        <p>&copy; 2025 D&D Scheduler. Tutti i diritti riservati.</p>
+        <div class="mt-4 space-x-4">
+          <a href="/privacy-policy.html" class="text-amber hover:underline">Privacy Policy</a>
+          <span>|</span>
+          <a href="/cookie-policy.html" class="text-amber hover:underline">Cookie Policy</a>
+          <span>|</span>
+          <a href="/terms.html" class="text-amber hover:underline">Termini di Servizio</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Cookie Settings Modal Script -->
+  <script src="js/cookie-consent.js"></script>
+  <script>
+    document.getElementById('open-cookie-settings').addEventListener('click', () => {
+      if (window.CookieConsent) {
+        window.CookieConsent.showSettings();
+      }
+    });
+  </script>
+</body>
+
+</html>

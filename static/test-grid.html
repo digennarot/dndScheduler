@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Availability Grid</title>
+    <style>
+        .grid-cell {
+            background: white;
+            min-height: 60px;
+            min-width: 100px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            border: 2px solid #e5e7eb;
+            margin: 5px;
+            border-radius: 8px;
+        }
+
+        .grid-cell.available {
+            background: rgba(74, 124, 89, 0.8);
+            color: white;
+            border-color: #4a7c59;
+        }
+
+        .grid-cell.busy {
+            background: rgba(139, 38, 53, 0.8);
+            color: white;
+            border-color: #8b2635;
+        }
+
+        .grid-cell.tentative {
+            background: rgba(184, 115, 51, 0.8);
+            color: white;
+            border-color: #b87333;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .info {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #4a7c59;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧪 Availability Grid Test</h1>
+
+    <div class="info">
+        <strong>Instructions:</strong> Click the cells below. They should cycle through colors:
+        <ul>
+            <li>White → Green (Available)</li>
+            <li>Green → Orange (Tentative)</li>
+            <li>Orange → Red (Busy)</li>
+            <li>Red → White (Clear)</li>
+        </ul>
+    </div>
+
+    <h2>Test Grid:</h2>
+    <div>
+        <div class="grid-cell clickable" id="2025-12-31_10:00">10:00 AM</div>
+        <div class="grid-cell clickable" id="2025-12-31_11:00">11:00 AM</div>
+        <div class="grid-cell clickable" id="2025-12-31_12:00">12:00 PM</div>
+        <div class="grid-cell clickable" id="2025-12-31_13:00">1:00 PM</div>
+    </div>
+
+    <h2>Console Output:</h2>
+    <div id="console"
+        style="background: #000; color: #0f0; padding: 15px; border-radius: 8px; font-family: monospace; min-height: 200px; margin-top: 20px;">
+    </div>
+
+    <script>
+        const availabilityData = {};
+        const consoleDiv = document.getElementById('console');
+
+        function log(message) {
+            console.log(message);
+            consoleDiv.innerHTML += message + '<br>';
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function toggleAvailability(cellId) {
+            log('toggleAvailability called with cellId: ' + cellId);
+            const cell = document.getElementById(cellId);
+            log('Found cell: ' + (cell ? 'YES' : 'NO'));
+
+            if (!cell) {
+                log('ERROR: Cell not found for id: ' + cellId);
+                return;
+            }
+
+            if (!availabilityData[cellId]) {
+                availabilityData[cellId] = 'available';
+                cell.className = 'grid-cell available';
+                log('✅ Set to AVAILABLE (green)');
+            } else if (availabilityData[cellId] === 'available') {
+                availabilityData[cellId] = 'tentative';
+                cell.className = 'grid-cell tentative';
+                log('⚠️  Set to TENTATIVE (orange)');
+            } else if (availabilityData[cellId] === 'tentative') {
+                availabilityData[cellId] = 'busy';
+                cell.className = 'grid-cell busy';
+                log('❌ Set to BUSY (red)');
+            } else {
+                delete availabilityData[cellId];
+                cell.className = 'grid-cell clickable';
+                log('⚪ CLEARED (white)');
+            }
+
+            log('Current data: ' + JSON.stringify(availabilityData));
+            log('---');
+        }
+
+        // Attach click handlers
+        document.querySelectorAll('.grid-cell').forEach(cell => {
+            cell.onclick = () => toggleAvailability(cell.id);
+        });
+
+        log('🚀 Test page loaded. Click the cells above!');
+        log('---');
+    </script>
+</body>
+
+</html>

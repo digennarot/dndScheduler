@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pannello Amministrazione - Pianificatore Sessioni D&D</title>
+
+  <!-- Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <!-- Core Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+
+  <!-- Google OAuth -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest: "#1a3d2e",
+            amber: "#d4a574",
+            mystic: "#6b5b95",
+            cream: "#faf8f5",
+            emerald: "#4a7c59",
+            copper: "#b87333",
+            "deep-red": "#8b2635",
+            "admin-dark": "#0f172a",
+            "admin-light": "#f8fafc",
+          },
+          fontFamily: {
+            cinzel: ["Cinzel", "serif"],
+            inter: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    .admin-sidebar {
+      background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+      border-right: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .admin-header {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .admin-card {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(212, 165, 116, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .admin-card:hover {
+      border-color: rgba(212, 165, 116, 0.3);
+      box-shadow: 0 8px 32px rgba(212, 165, 116, 0.1);
+    }
+
+    .nav-item {
+      padding: 12px 20px;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .nav-item:hover {
+      background: rgba(212, 165, 116, 0.1);
+    }
+
+    .nav-item.active {
+      background: rgba(212, 165, 116, 0.2);
+      border-left: 4px solid #d4a574;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg,
+          rgba(74, 124, 89, 0.1) 0%,
+          rgba(107, 91, 149, 0.1) 100%);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #d4a574 0%, #6b5b95 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .status-online {
+      background-color: #4ade80;
+    }
+
+    .status-offline {
+      background-color: #6b7280;
+    }
+
+    .status-active {
+      background-color: #4a7c59;
+    }
+
+    .status-pending {
+      background-color: #b87333;
+    }
+
+    .status-suspended {
+      background-color: #8b2635;
+    }
+
+    .login-container {
+      background: rgba(30, 41, 59, 0.9);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .g_id_signin {
+      width: 100%;
+    }
+
+    .particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .content-layer {
+      position: relative;
+      z-index: 2;
+    }
+
+    .table-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .admin-table th {
+      background: rgba(212, 165, 116, 0.1);
+      padding: 16px;
+      text-align: left;
+      font-weight: 600;
+      color: #d4a574;
+      border-bottom: 1px solid rgba(212, 165, 116, 0.2);
+    }
+
+    .admin-table td {
+      padding: 16px;
+      border-bottom: 1px solid rgba(212, 165, 116, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .admin-table tr:hover {
+      background: rgba(212, 165, 116, 0.05);
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+      margin-right: 8px;
+    }
+
+    .action-btn.primary {
+      background: rgba(74, 124, 89, 0.8);
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: rgba(74, 124, 89, 1);
+    }
+
+    .action-btn.secondary {
+      background: rgba(212, 165, 116, 0.8);
+      color: white;
+    }
+
+    .action-btn.secondary:hover {
+      background: rgba(212, 165, 116, 1);
+    }
+
+    .action-btn.danger {
+      background: rgba(139, 38, 53, 0.8);
+      color: white;
+    }
+
+    .action-btn.danger:hover {
+      background: rgba(139, 38, 53, 1);
+    }
+
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .status-badge.status-active {
+      background: rgba(74, 124, 89, 0.2);
+      color: #4a7c59;
+    }
+
+    .status-badge.status-pending {
+      background: rgba(184, 115, 51, 0.2);
+      color: #b87333;
+    }
+
+    .status-badge.status-finalized {
+      background: rgba(107, 91, 149, 0.2);
+      color: #6b5b95;
+    }
+
+    /* DM Tools Dropdown */
+    .dm-tools-dropdown-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dm-tools-menu {
+      position: absolute;
+      right: 0;
+      margin-top: 8px;
+      min-width: 220px;
+      background: rgba(55, 65, 81, 0.98);
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(212, 165, 116, 0.3);
+      z-index: 1000;
+      overflow: hidden;
+    }
+
+    .dm-tools-menu button {
+      width: 100%;
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #e2e8f0;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dm-tools-menu button:hover {
+      background: rgba(212, 165, 116, 0.15);
+      color: #d4a574;
+    }
+
+    .dm-tools-menu button:not(:last-child) {
+      border-bottom: 1px solid rgba(212, 165, 116, 0.1);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Particle Background -->
+  <div id="particle-container" class="particle-canvas"></div>
+
+  <div class="content-layer">
+    <!-- Login Screen -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+      <div class="login-container rounded-2xl p-8 max-w-md w-full">
+        <div class="text-center mb-8">
+          <div
+            class="w-16 h-16 bg-gradient-to-br from-amber to-mystic rounded-xl flex items-center justify-center mx-auto mb-4">
+            <span class="text-white font-cinzel font-bold text-xl">D&D</span>
+          </div>
+          <h1 class="font-cinzel text-3xl font-bold text-amber mb-2">
+            Portale Amministrazione
+          </h1>
+          <p class="text-gray-400">Gestisci il tuo Pianificatore Sessioni D&D</p>
+        </div>
+
+        <div class="space-y-6">
+          <div class="text-center">
+            <p class="text-gray-300 mb-4">
+              Accedi con Google per accedere al pannello amministrazione
+            </p>
+            <div id="google-login-btn"></div>
+          </div>
+
+          <div class="relative flex py-2 items-center">
+            <div class="flex-grow border-t border-gray-600"></div>
+            <span class="flex-shrink-0 mx-4 text-gray-400 text-sm">OPPURE</span>
+            <div class="flex-grow border-t border-gray-600"></div>
+          </div>
+
+          <form id="admin-login-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+              <input type="email" id="email" name="email"
+                class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent"
+                required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+              <input type="password" id="password" name="password"
+                class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent"
+                required>
+            </div>
+            <button type="submit"
+              class="w-full py-2 px-4 bg-amber hover:bg-amber/90 text-gray-900 font-bold rounded-lg transition-colors">
+              Accedi
+            </button>
+          </form>
+
+          <div class="text-center mt-6">
+            <a href="/" class="inline-flex items-center space-x-2 text-amber hover:text-amber/80 transition-colors">
+              <span>🏠</span>
+              <span>← Torna alla Home</span>
+            </a>
+          </div>
+
+          <div class="text-center text-sm text-gray-500 mt-4">
+            <p>Solo gli amministratori autorizzati possono accedere a questo portale</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pannello Amministrazione -->
+    <div id="admin-dashboard" class="min-h-screen hidden">
+      <!-- Header -->
+      <header class="admin-header fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center justify-between px-6 py-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-gradient-to-br from-amber to-mystic rounded-lg flex items-center justify-center">
+              <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+            </div>
+            <h1 class="font-cinzel text-xl font-semibold text-amber">
+              Pannello Amministrazione
+            </h1>
+          </div>
+
+          <div class="flex items-center space-x-4">
+            <a href="/" class="action-btn secondary flex items-center space-x-2">
+              <span>🏠</span>
+              <span>← Torna alla Home</span>
+            </a>
+            <a href="http://127.0.0.1:30000/auth" target="_blank" data-foundry-btn
+              class="action-btn primary flex items-center space-x-2">
+              <span>🎲</span>
+              <span>FoundryVTT</span>
+            </a>
+            <div class="flex items-center space-x-3">
+              <div class="user-avatar" id="admin-avatar">AD</div>
+              <div class="text-right">
+                <div class="font-medium text-amber" id="admin-name">
+                  Utente Admin
+                </div>
+                <div class="text-sm text-gray-400" id="admin-email">
+                  admin@example.com
+                </div>
+              </div>
+            </div>
+            <button onclick="adminManager.logout()" class="action-btn danger">
+              Esci
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <div class="flex pt-20">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar w-64 p-6 fixed left-0 top-20 bottom-0 overflow-y-auto">
+          <nav class="space-y-2">
+            <div class="nav-item active" onclick="adminManager.switchTab('overview')">
+              <span class="mr-3">📊</span>
+              <span>Panoramica</span>
+            </div>
+            <div class="nav-item" onclick="adminManager.switchTab('users')">
+              <span class="mr-3">👥</span>
+              <span>Utenti</span>
+            </div>
+            <div class="nav-item" onclick="adminManager.switchTab('sessions')">
+              <span class="mr-3">🎲</span>
+              <span>Sessioni</span>
+            </div>
+            <div class="nav-item" onclick="adminManager.switchTab('analytics')">
+              <span class="mr-3">📈</span>
+              <span>Analitiche</span>
+            </div>
+            <div class="nav-item" onclick="adminManager.switchTab('settings')">
+              <span class="mr-3">⚙️</span>
+              <span>Impostazioni</span>
+            </div>
+          </nav>
+
+          <div class="text-sm text-gray-400 mb-4">Strumenti DM</div>
+          <div class="space-y-2">
+            <a href="/dm-tools/index.html"
+              class="nav-item flex items-center w-full text-left p-2 rounded hover:bg-gray-700 transition-colors text-sm text-gray-200">
+              <span class="mr-3">🚀</span>
+              <span>Accedi a DM Tools</span>
+            </a>
+          </div>
+      </div>
+
+      <div class="mt-8 pt-8 border-t border-gray-600">
+        <div class="text-sm text-gray-400 mb-4">Azioni Rapide</div>
+        <div class="space-y-2">
+          <button onclick="adminManager.broadcastMessage()"
+            class="w-full text-left p-2 rounded hover:bg-gray-700 transition-colors text-sm">
+            📢 Messaggio Broadcast
+          </button>
+          <button onclick="adminManager.systemMaintenance()"
+            class="w-full text-left p-2 rounded hover:bg-gray-700 transition-colors text-sm">
+            🔧 Manutenzione Sistema
+          </button>
+          <button onclick="adminManager.exportData()"
+            class="w-full text-left p-2 rounded hover:bg-gray-700 transition-colors text-sm">
+            📊 Esporta Dati
+          </button>
+        </div>
+      </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="flex-1 ml-64 p-6">
+        <!-- Panoramica Tab -->
+        <div id="overview-tab" class="tab-content">
+          <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-amber mb-2">
+              System Panoramica
+            </h2>
+            <p class="text-gray-400">
+              Monitora la tua piattaforma Pianificatore Sessioni D&D
+            </p>
+          </div>
+
+          <!-- Stats Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card rounded-xl p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-3xl">👥</div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-emerald" id="total-users">
+                    0
+                  </div>
+                  <div class="text-sm text-gray-400">Total Utenti</div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                <span class="status-indicator status-online"></span>
+                <span id="online-users">0</span> online ora
+              </div>
+            </div>
+
+            <div class="stat-card rounded-xl p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-3xl">🎲</div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-amber" id="total-sessions">
+                    0
+                  </div>
+                  <div class="text-sm text-gray-400">Sessioni Attive</div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                <span class="status-indicator status-active"></span>
+                <span id="active-sessions">0</span> campagne attive
+              </div>
+            </div>
+
+            <div class="stat-card rounded-xl p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-3xl">📊</div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-mystic" id="response-rate">
+                    0%
+                  </div>
+                  <div class="text-sm text-gray-400">Tasso di Risposta</div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                Media su tutte le sessioni
+              </div>
+            </div>
+
+            <div class="stat-card rounded-xl p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-3xl">⚡</div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-copper" id="system-status">
+                    Online
+                  </div>
+                  <div class="text-sm text-gray-400">Stato Sistema</div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                Tutti i servizi operativi
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <!-- Charts removed: fake hardcoded data -->
+        </div>
+
+        <!-- Utenti Tab -->
+        <div id="users-tab" class="tab-content hidden">
+          <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-amber mb-2">
+              Gestione Utenti
+            </h2>
+            <p class="text-gray-400">
+              View all participants across all sessions. Utenti are automatically created when added to sessions.
+            </p>
+          </div>
+
+          <div class="admin-card rounded-xl p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber">
+                All Utenti
+              </h3>
+              <div class="flex space-x-3">
+                <input type="text" placeholder="Cerca utenti..."
+                  class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-amber focus:border-transparent" />
+                <button onclick="adminManager.showAddUserModal()" class="action-btn primary">
+                  + Aggiungi Utente
+                </button>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Utente</th>
+                    <th>Email</th>
+                    <th>Ruolo</th>
+                    <th>Stato</th>
+                    <th>Ultimo Accesso</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <!-- Utenti will be populated here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sessioni Tab -->
+        <div id="sessions-tab" class="tab-content hidden">
+          <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-amber mb-2">
+              Gestione Sessioni
+            </h2>
+            <p class="text-gray-400">Monitora e gestisci tutte le sessioni D&D</p>
+          </div>
+
+          <div class="admin-card rounded-xl p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber">
+                All Sessioni
+              </h3>
+              <div class="flex space-x-3">
+                <select
+                  class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+                  <option value="">All Stato</option>
+                  <option value="active">Attiva</option>
+                  <option value="finalized">Finalizzata</option>
+                  <option value="cancelled">Annullata</option>
+                </select>
+                <button onclick="adminManager.refreshSessioni()" class="action-btn secondary">
+                  Aggiorna
+                </button>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Sessione</th>
+                    <th>DM</th>
+                    <th>Giocatori</th>
+                    <th>Stato</th>
+                    <th>Creato</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody id="sessions-table-body">
+                  <!-- Sessioni will be populated here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analitiche Tab -->
+        <div id="analytics-tab" class="tab-content hidden">
+          <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-amber mb-2">
+              Analitiche
+            </h2>
+            <p class="text-gray-400">
+              Statistiche di utilizzo e performance della piattaforma
+            </p>
+          </div>
+
+          <!-- Analytics charts removed: all used fake hardcoded data -->
+        </div>
+
+        <!-- Impostazioni Tab -->
+        <div id="settings-tab" class="tab-content hidden">
+          <div class="mb-8">
+            <h2 class="font-cinzel text-3xl font-bold text-amber mb-2">
+              System Impostazioni
+            </h2>
+            <p class="text-gray-400">
+              Configura impostazioni e preferenze della piattaforma
+            </p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="admin-card rounded-xl p-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber mb-4">
+                General Impostazioni
+              </h3>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium text-gray-200">
+                      Modalità Manutenzione
+                    </div>
+                    <div class="text-sm text-gray-400">
+                      Disabilita temporaneamente la piattaforma
+                    </div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" id="maintenance-toggle" />
+                    <div
+                      class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber">
+                    </div>
+                  </label>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium text-gray-200">
+                      Notifiche Email
+                    </div>
+                    <div class="text-sm text-gray-400">
+                      Invia notifiche email per aggiornamenti sessioni
+                    </div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" checked id="email-toggle" />
+                    <div
+                      class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber">
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-card rounded-xl p-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber mb-4">
+                Security Impostazioni
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-300 mb-2">Sessione Timeout (minutes)</label>
+                  <input type="number" value="60"
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent" />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-300 mb-2">Massimi Tentativi Login Falliti</label>
+                  <input type="number" value="5"
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent" />
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-card rounded-xl p-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber mb-4">
+                API Impostazioni
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-300 mb-2">Google Client ID</label>
+                  <input type="text" placeholder="Inserisci Google Client ID"
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent" />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-300 mb-2">Limite API (richieste/minuto)</label>
+                  <input type="number" value="100"
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent" />
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-card rounded-xl p-6">
+              <h3 class="font-cinzel text-xl font-semibold text-amber mb-4">
+                🎲 FoundryVTT
+              </h3>
+              <p class="text-gray-400 text-sm mb-4">
+                Configura il link a FoundryVTT visibile nella navbar di tutte le pagine.
+              </p>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium text-gray-200">
+                      Mostra Pulsante FoundryVTT
+                    </div>
+                    <div class="text-sm text-gray-400">
+                      Abilita il pulsante 🎲 nella navbar
+                    </div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" id="foundry-enabled-toggle" checked />
+                    <div
+                      class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber">
+                    </div>
+                  </label>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-300 mb-2">URL FoundryVTT</label>
+                  <div class="flex space-x-2">
+                    <input type="url" id="foundry-url-input" placeholder="https://foundry.example.com"
+                      class="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent" />
+                    <button onclick="saveFoundryConfig()" class="action-btn primary">
+                      💾 Salva
+                    </button>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">Default: http://127.0.0.1:30000/auth</p>
+                </div>
+
+                <div class="flex space-x-2">
+                  <button onclick="testFoundryUrl()" class="action-btn secondary text-sm">
+                    🔗 Testa Link
+                  </button>
+                  <button onclick="resetFoundryConfig()" class="action-btn text-sm bg-gray-600 hover:bg-gray-500">
+                    🔄 Reset Default
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Sessione Details Modal -->
+  <div id="session-details-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="admin-card rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-cinzel text-2xl font-bold text-amber" id="modal-session-title">Dettagli Sessionee</h2>
+          <button onclick="adminManager.closeSessioneModal()" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Sessione Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm text-gray-400">Sessione ID</label>
+              <div class="text-gray-200 font-mono text-sm" id="modal-session-id">-</div>
+            </div>
+            <div>
+              <label class="text-sm text-gray-400">Dungeon Master</label>
+              <div class="text-gray-200" id="modal-session-dm">-</div>
+            </div>
+            <div>
+              <label class="text-sm text-gray-400">Luogo</label>
+              <div class="text-gray-200" id="modal-session-location">-</div>
+            </div>
+            <div>
+              <label class="text-sm text-gray-400">Creato</label>
+              <div class="text-gray-200" id="modal-session-created">-</div>
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-400">Descrizione</label>
+              <div class="text-gray-200" id="modal-session-description">-</div>
+            </div>
+          </div>
+
+          <!-- Participants -->
+          <div>
+            <h3 class="font-cinzel text-lg font-semibold text-amber mb-3">Partecipanti</h3>
+            <div class="table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Stato</th>
+                  </tr>
+                </thead>
+                <tbody id="modal-participants-list">
+                  <tr>
+                    <td colspan="3" class="text-center text-gray-400">Caricamento...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Available Dates -->
+          <div>
+            <h3 class="font-cinzel text-lg font-semibold text-amber mb-3">Date Proposte</h3>
+            <div id="modal-session-dates" class="flex flex-wrap gap-2">
+              <span class="text-gray-400">Caricamento...</span>
+            </div>
+          </div>
+
+          <!-- Availability Summary -->
+          <div>
+            <h3 class="font-cinzel text-lg font-semibold text-amber mb-3">Availability Summary</h3>
+            <div id="modal-availability-summary" class="text-gray-400">
+              Loading...
+            </div>
+          </div>
+
+          <!-- Azioni -->
+          <div class="flex justify-end space-x-3 pt-4 border-t border-gray-600">
+            <button onclick="adminManager.closeSessioneModal()" class="action-btn secondary">
+              Close
+            </button>
+            <button onclick="adminManager.editSessioneFromModal()" class="action-btn primary">
+              Edit Sessione
+            </button>
+            <button onclick="adminManager.deleteSessioneFromModal()" class="action-btn danger">
+              Delete Sessione
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Sessione Modal -->
+  <div id="edit-session-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="admin-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-cinzel text-2xl font-bold text-amber">Modifica Sessionee</h2>
+          <button onclick="adminManager.closeEditModal()" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+
+        <form id="edit-session-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Title</label>
+            <input type="text" id="edit-title" name="title" required
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Descrizione</label>
+            <textarea id="edit-description" name="description" rows="3" required
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Luogo</label>
+            <input type="text" id="edit-location" name="location" required
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Ora Range</label>
+            <input type="text" id="edit-timeRange" name="timeRange" placeholder="e.g., 18:00-22:00" required
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Date Proposte</label>
+            <div id="edit-dates-list" class="space-y-2 mb-2">
+              <!-- Le date saranno popolate qui -->
+            </div>
+            <button type="button" onclick="adminManager.addDateToEdit()" class="action-btn secondary text-sm">
+              + Add Date
+            </button>
+          </div>
+
+          <div class="flex justify-end space-x-3 pt-4 border-t border-gray-600">
+            <button type="button" onclick="adminManager.closeEditModal()" class="action-btn secondary">
+              Cancel
+            </button>
+            <button type="submit" class="action-btn primary">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div id="add-user-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+    <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+      <div class="p-6 border-b border-gray-700">
+        <div class="flex items-center justify-between">
+          <h3 class="font-cinzel text-2xl font-bold text-amber">Aggiungi Utente</h3>
+          <button onclick="adminManager.closeAddUserModal()" class="text-gray-400 hover:text-gray-200">
+            <span class="text-2xl">×</span>
+          </button>
+        </div>
+      </div>
+
+      <form id="add-user-form" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-1">Nome</label>
+          <input type="text" id="new-user-name" required
+            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-1">Email</label>
+          <input type="email" id="new-user-email" required
+            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-1">Ruolo</label>
+          <select id="new-user-role"
+            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+            <option value="player">Giocatore</option>
+            <option value="dm">Dungeon Master</option>
+            <option value="admin">Amministratore</option>
+          </select>
+        </div>
+
+        <div class="flex space-x-3 pt-4">
+          <button type="button" onclick="adminManager.closeAddUserModal()" class="flex-1 action-btn secondary">
+            Annulla
+          </button>
+          <button type="submit" class="flex-1 action-btn primary">
+            Aggiungi Utente
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change Role Modal -->
+  <div id="change-role-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+    <div class="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+      <div class="p-6 border-b border-gray-700">
+        <div class="flex items-center justify-between">
+          <h3 class="font-cinzel text-2xl font-bold text-amber">Cambia Ruolo Utente</h3>
+          <button onclick="adminManager.closeChangeRoleModal()" class="text-gray-400 hover:text-gray-200">
+            <span class="text-2xl">×</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-gray-700/50 rounded-lg p-4 mb-4">
+          <p class="text-gray-300 text-sm mb-1">Utente:</p>
+          <p id="change-role-user-name" class="text-white font-semibold text-lg"></p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-300 mb-2">Nuovo Ruolo</label>
+          <select id="change-role-select"
+            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-amber focus:border-transparent">
+            <option value="player">Giocatore (Player)</option>
+            <option value="dm">Dungeon Master (DM)</option>
+            <option value="admin">Amministratore (Admin)</option>
+          </select>
+          <p class="text-gray-400 text-xs mt-2">
+            Player: Può partecipare alle sessioni<br>
+            DM: Può creare e gestire sessioni<br>
+            Admin: Accesso completo al pannello amministrativo
+          </p>
+        </div>
+
+        <div class="flex space-x-3 pt-4">
+          <button type="button" onclick="adminManager.closeChangeRoleModal()" class="flex-1 action-btn secondary">
+            Annulla
+          </button>
+          <button type="button" onclick="adminManager.changeUserRole()" class="flex-1 action-btn primary">
+            Cambia Ruolo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/nav-protection.js"></script>
+  <script src="js/foundry-config.js"></script>
+
+  <script src="js/app.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/reminder-manager.js"></script>
+  <script src="js/session-manager.js"></script>
+  <!-- Admin System - Production Ready -->
+  <script src="js/admin-config.js?v=1"></script>
+  <script src="js/admin-storage.js?v=1"></script>
+  <script src="js/admin-manager.js?v=15"></script>
+
+  <script>
+    // FoundryVTT Configuration Functions
+    document.addEventListener('DOMContentLoaded', function () {
+      // Initialize config inputs with stored values
+      const urlInput = document.getElementById('foundry-url-input');
+      const enabledToggle = document.getElementById('foundry-enabled-toggle');
+
+      if (urlInput && window.FoundryConfig) {
+        urlInput.value = FoundryConfig.getUrl();
+      }
+      if (enabledToggle && window.FoundryConfig) {
+        enabledToggle.checked = FoundryConfig.isEnabled();
+        enabledToggle.addEventListener('change', function () {
+          FoundryConfig.setEnabled(this.checked);
+          showNotification('FoundryVTT ' + (this.checked ? 'abilitato' : 'disabilitato'));
+        });
+      }
+    });
+
+    function saveFoundryConfig() {
+      const urlInput = document.getElementById('foundry-url-input');
+      if (urlInput && urlInput.value) {
+        FoundryConfig.setUrl(urlInput.value);
+        showNotification('✅ URL FoundryVTT salvato!');
+      }
+    }
+
+    function testFoundryUrl() {
+      const url = FoundryConfig.getUrl();
+      window.open(url, '_blank');
+    }
+
+    function resetFoundryConfig() {
+      if (confirm('Vuoi ripristinare le impostazioni FoundryVTT ai valori di default?')) {
+        FoundryConfig.reset();
+        const urlInput = document.getElementById('foundry-url-input');
+        const enabledToggle = document.getElementById('foundry-enabled-toggle');
+        if (urlInput) urlInput.value = FoundryConfig.getUrl();
+        if (enabledToggle) enabledToggle.checked = FoundryConfig.isEnabled();
+        showNotification('🔄 Impostazioni ripristinate');
+      }
+    }
+
+    function showNotification(message) {
+      // Use existing notification if available, otherwise alert
+      if (window.adminManager && adminManager.showSuccessMessage) {
+        adminManager.showSuccessMessage('FoundryVTT', message);
+      } else {
+        alert(message);
+      }
+    }
+  </script>
+</body>
+
+</html>

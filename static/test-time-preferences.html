@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Per-Day Time Preferences</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .time-slot {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .time-slot:hover {
+            border-color: #d4a574;
+            background-color: rgba(212, 165, 116, 0.1);
+        }
+
+        .time-slot.selected {
+            border-color: #1a3d2e;
+            background-color: rgba(26, 61, 46, 0.1);
+            color: #1a3d2e;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Per-Day Time Preferences Test</h1>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Select Dates</h2>
+            <div class="space-y-2">
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" value="2025-12-10" onchange="updateDates()">
+                    <span>Monday, Dec 10, 2025</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" value="2025-12-11" onchange="updateDates()">
+                    <span>Tuesday, Dec 11, 2025</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" value="2025-12-13" onchange="updateDates()">
+                    <span>Thursday, Dec 13, 2025</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" value="2025-12-15" onchange="updateDates()">
+                    <span>Saturday, Dec 15, 2025</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Ora Preferences</h2>
+                <button onclick="applyToAll()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Copy First to All
+                </button>
+            </div>
+            <div id="time-preferences-container"></div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Result (JSON)</h2>
+            <pre id="result" class="bg-gray-100 p-4 rounded overflow-auto text-sm"></pre>
+            <button onclick="testAPI()" class="mt-4 px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                Test API Call
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
+        let selectedDates = [];
+        let timePreferences = {};
+
+        function updateDates() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            selectedDates = Array.from(checkboxes).map(cb => cb.value);
+
+            // Initialize time preferences for new dates
+            selectedDates.forEach(date => {
+                if (!timePreferences[date]) {
+                    timePreferences[date] = [];
+                }
+            });
+
+            // Remove preferences for unchecked dates
+            Object.keys(timePreferences).forEach(date => {
+                if (!selectedDates.includes(date)) {
+                    delete timePreferences[date];
+                }
+            });
+
+            renderTimePreferences();
+            updateResult();
+        }
+
+        function renderTimePreferences() {
+            const container = document.getElementById('time-preferences-container');
+
+            if (selectedDates.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Please select at least one date above</p>';
+                return;
+            }
+
+            container.innerHTML = selectedDates.map(date => {
+                const dateObj = new Date(date + 'T00:00:00');
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const selectedTimes = timePreferences[date] || [];
+
+                return `
+                    <div class="mb-6 pb-6 border-b last:border-0">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-lg">${dayName}</h3>
+                                <p class="text-sm text-gray-600">${formattedDate}</p>
+                            </div>
+                            <span class="text-sm text-gray-500">${selectedTimes.length} selected</span>
+                        </div>
+                        <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                            ${timeSlots.map(time => {
+                    const isSelected = selectedTimes.includes(time);
+                    return `
+                                    <div class="time-slot ${isSelected ? 'selected' : ''}" 
+                                        onclick="toggleTime('${date}', '${time}')">
+                                        ${formatTime(time)}
+                                    </div>
+                                `;
+                }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleTime(date, time) {
+            if (!timePreferences[date]) {
+                timePreferences[date] = [];
+            }
+
+            const index = timePreferences[date].indexOf(time);
+            if (index > -1) {
+                timePreferences[date].splice(index, 1);
+            } else {
+                timePreferences[date].push(time);
+            }
+
+            renderTimePreferences();
+            updateResult();
+        }
+
+        function applyToAll() {
+            if (selectedDates.length === 0) {
+                alert('Please select at least one date first');
+                return;
+            }
+
+            const firstDate = selectedDates[0];
+            const firstTimes = timePreferences[firstDate] || [];
+
+            if (firstTimes.length === 0) {
+                alert('Please select at least one time for the first date');
+                return;
+            }
+
+            selectedDates.forEach(date => {
+                timePreferences[date] = [...firstTimes];
+            });
+
+            renderTimePreferences();
+            updateResult();
+            alert(`Applied ${firstTimes.length} time slot(s) to all ${selectedDates.length} dates!`);
+        }
+
+        function formatTime(time) {
+            const [hours, minutes] = time.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+            return `${displayHour}:${minutes} ${ampm}`;
+        }
+
+        function updateResult() {
+            const payload = {
+                title: "Test Campaign",
+                description: "Testing per-day time preferences",
+                location: "Online",
+                dates: selectedDates,
+                timePreferences: timePreferences,
+                participants: ["player1@email.com", "player2@email.com"]
+            };
+
+            document.getElementById('result').textContent = JSON.stringify(payload, null, 2);
+        }
+
+        async function testAPI() {
+            const payload = {
+                title: "Test Campaign",
+                description: "Testing per-day time preferences",
+                location: "Online",
+                dates: selectedDates,
+                timePreferences: timePreferences,
+                participants: ["player1@email.com", "player2@email.com"]
+            };
+
+            try {
+                const response = await fetch('/api/polls', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                alert('Success! Poll ID: ' + result.id);
+                console.log('Created poll:', result);
+            } catch (error) {
+                alert('Error: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+
+        // Initialize
+        updateResult();
+    </script>
+</body>
+
+</html>

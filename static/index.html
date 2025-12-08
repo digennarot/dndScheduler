@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pianificatore Sessioni D&D - Coordina le Tue Avventure</title>
+
+  <!-- Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <!-- Core Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // D&D Black & Red Theme
+            'dnd-black': '#0a0a0a',
+            'dnd-dark': '#1a1a1a',
+            'dnd-darker': '#121212',
+            'dnd-red': '#dc2626',
+            'dnd-red-dark': '#991b1b',
+            'dnd-red-light': '#ef4444',
+            'dnd-crimson': '#8b0000',
+            'dnd-gold': '#fbbf24',
+
+            // Legacy mappings for compatibility
+            forest: "#dc2626",
+            amber: "#fbbf24",
+            mystic: "#8b0000",
+            cream: "#f5f5f5",
+            emerald: "#dc2626",
+            copper: "#d97706",
+            "deep-red": "#991b1b",
+          },
+          fontFamily: {
+            cinzel: ["Cinzel", "serif"],
+            inter: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- D&D Theme CSS -->
+  <link rel="stylesheet" href="css/dnd-theme.css" />
+
+  <style>
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(220, 38, 38, 0.3);
+    }
+
+    .availability-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .status-active {
+      background-color: #dc2626;
+      box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+    }
+
+    .status-pending {
+      background-color: #fbbf24;
+      box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+    }
+
+    .status-finalized {
+      background-color: #8b0000;
+      box-shadow: 0 0 8px rgba(139, 0, 0, 0.5);
+    }
+
+    .hero-text {
+      background: linear-gradient(135deg,
+          #dc2626 0%,
+          #ef4444 50%,
+          #fbbf24 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Particle Background -->
+  <div id="particle-container" class="particle-canvas"></div>
+
+  <div class="content-layer">
+    <!-- Navigation -->
+    <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center space-x-4">
+            <div
+              class="w-10 h-10 bg-gradient-to-br from-forest to-deep-red rounded-lg flex items-center justify-center">
+              <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+            </div>
+            <h1 class="font-cinzel text-xl font-semibold text-forest">
+              Session Scheduler
+            </h1>
+          </div>
+
+          <div class="hidden md:flex items-center space-x-6">
+            <a href="index.html"
+              class="flex items-center space-x-1 text-forest font-medium border-b-2 border-amber pb-1">
+              <span>📜</span>
+              <span>Bacheca</span>
+            </a>
+            <a href="participate.html"
+              class="flex items-center space-x-1 text-gray-600 hover:text-forest transition-colors">
+              <span>🎯</span>
+              <span>Partecipa</span>
+            </a>
+            <a href="manage.html" class="flex items-center space-x-1 text-gray-600 hover:text-forest transition-colors"
+              id="nav-manage">
+              <span>📋</span>
+              <span>Gestisci</span>
+            </a>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <a href="http://127.0.0.1:30000/auth" target="_blank" data-foundry-btn
+              class="flex items-center space-x-2 bg-gradient-to-r from-amber to-copper text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+              <span>🎲</span>
+              <span>FoundryVTT</span>
+            </a>
+            <a href="admin.html"
+              class="flex items-center space-x-2 bg-gradient-to-r from-mystic to-deep-red text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+              <span>⚔️</span>
+              <span>Admin</span>
+            </a>
+
+            <!-- User Display (when logged in) -->
+            <div id="user-display" style="display: none;"></div>
+
+            <!-- Login Link (when not logged in) -->
+            <a id="login-link" href="login.html"
+              class="flex items-center space-x-2 bg-gradient-to-r from-forest to-emerald text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+              <span>🛡️</span>
+              <span>Accedi</span>
+            </a>
+
+            <!-- Logout Button (when logged in) -->
+            <button id="logout-btn" style="display: none;"
+              class="flex items-center space-x-2 bg-gradient-to-r from-deep-red to-mystic text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
+              <span>🚪</span>
+              <span>Esci</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="aurora-bg py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+          <div class="space-y-8">
+            <div class="space-y-4">
+              <h2 class="font-cinzel text-5xl font-bold hero-text leading-tight">
+                Coordina le Tue Avventure Epiche
+              </h2>
+              <p class="text-xl text-gray-700 leading-relaxed">
+                Riunisci il tuo gruppo con una pianificazione intelligente che
+                trova l'orario perfetto per ogni missione. Niente più conflitti
+                di orario, solo pura magia nella pianificazione delle avventure.
+              </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4">
+              <button onclick="window.location.href='create-poll.html'"
+                class="bg-forest text-white px-8 py-4 rounded-lg font-semibold mystical-glow text-lg">
+                Inizia Nuova Campagna
+              </button>
+              <button onclick="window.location.href='participate.html'"
+                class="border-2 border-forest text-forest px-8 py-4 rounded-lg font-semibold hover:bg-forest hover:text-white transition-all">
+                Unisciti all'Avventura
+              </button>
+            </div>
+
+            <!-- Statistiche Hero - NASCOSTO (non implementato) -->
+            <!--
+            <div class="flex items-center space-x-6 text-sm text-gray-600">
+              <div class="flex items-center">
+                <span class="availability-indicator status-active"></span>
+                <span id="hero-active-campaigns">Caricamento...</span>
+              </div>
+              <div class="flex items-center">
+                <span class="availability-indicator status-pending"></span>
+                <span id="hero-pending-responses">Caricamento...</span>
+              </div>
+              <div class="flex items-center">
+                <span class="availability-indicator status-finalized"></span>
+                <span id="hero-sessions-scheduled">Caricamento...</span>
+              </div>
+            </div>
+            -->
+          </div>
+
+          <div class="relative">
+            <img src="resources/hero-main.jpg" alt="Mystical D&D Planning Scene"
+              class="w-full h-96 object-cover rounded-2xl shadow-2xl" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Active Polls Section -->
+    <section class="py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h3 class="font-cinzel text-3xl font-bold text-forest mb-4">
+            Active Campaigns
+          </h3>
+          <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            Le tue avventure in corso in attesa del momento perfetto per la pianificazione
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8" id="active-polls">
+          <!-- I sondaggi saranno caricati dinamicamente qui -->
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Quick Stats Dashboard -->
+    <section class="py-16 bg-white/50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h3 class="font-cinzel text-3xl font-bold text-forest mb-4">
+            Statistiche Pianificazione
+          </h3>
+          <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            Monitora l'attività di pianificazione della campagna e i pattern di risposta
+          </p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid md:grid-cols-2 gap-6 mb-12">
+          <div class="bg-white p-8 rounded-xl shadow-lg mystical-glow">
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="font-cinzel text-lg font-semibold text-forest">Tasso di Successo</h4>
+              <span class="text-4xl">📊</span>
+            </div>
+            <div id="success-rate" class="text-5xl font-bold text-emerald mb-2">-</div>
+            <p class="text-sm text-gray-600">Sondaggi pianificati con successo</p>
+          </div>
+
+          <div class="bg-white p-8 rounded-xl shadow-lg mystical-glow">
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="font-cinzel text-lg font-semibold text-forest">Tempo Risposta Medio</h4>
+              <span class="text-4xl">⏱️</span>
+            </div>
+            <div id="avg-response-time" class="text-5xl font-bold text-amber mb-2">-</div>
+            <p class="text-sm text-gray-600">Tempo per i giocatori di rispondere</p>
+          </div>
+        </div>
+
+        <!-- Activity Chart - Full Width -->
+        <div class="bg-white p-8 rounded-xl shadow-lg mystical-glow">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h4 class="font-cinzel text-2xl font-semibold text-forest mb-2">
+                Attività di Questa Settimana
+              </h4>
+              <p class="text-gray-600">Attività giornaliera di creazione sondaggi e risposte</p>
+            </div>
+            <span class="text-5xl">📈</span>
+          </div>
+          <div id="availability-chart" class="h-96"></div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Recent Activity -->
+
+
+    <!-- Footer -->
+    <footer class="bg-forest text-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="flex items-center justify-center space-x-4 mb-6">
+          <div class="w-10 h-10 bg-gradient-to-br from-deep-red to-forest rounded-lg flex items-center justify-center">
+            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+          </div>
+          <h4 class="font-cinzel text-xl font-semibold">Pianificatore Sessioni</h4>
+        </div>
+        <p class="text-amber/80 mb-4">
+          Bringing adventurers together, one session at a time
+        </p>
+        <div class="flex justify-center space-x-6 mb-4">
+          <a href="/privacy-policy.html" class="text-amber/70 hover:text-amber transition-colors">Privacy Policy</a>
+          <span class="text-amber/30">|</span>
+          <a href="/cookie-policy.html" class="text-amber/70 hover:text-amber transition-colors">Cookie Policy</a>
+        </div>
+        <p class="text-sm text-amber/50">
+          © 2025 Pianificatore Sessioni D&D. Creato con precisione magica.
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="js/nav-protection.js"></script>
+  <script src="js/foundry-config.js"></script>
+
+  <script src="js/auth.js"></script>
+  <script>
+    // Redirect logged-in users to dashboard
+    if (window.authManager && window.authManager.isLoggedIn()) {
+      window.location.href = '/dashboard.html';
+    }
+  </script>
+  <script src="js/app.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/statistics.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/cookie-consent.js"></script>
+</body>
+
+</html>

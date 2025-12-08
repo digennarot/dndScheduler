@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profilo - Pianificatore Sessioni D&D</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'forest': '#1a3d2e',
+                        'amber': '#d4a574',
+                        'mystic': '#6b5b95',
+                        'cream': '#faf8f5',
+                        'emerald': '#4a7c59',
+                        'deep-red': '#8b2635',
+                        'copper': '#b87333',
+                    },
+                    fontFamily: {
+                        'cinzel': ['Cinzel', 'serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- D&D Theme CSS -->
+    <link rel="stylesheet" href="css/dnd-theme.css" />
+
+    <style>
+        .mystical-glow {
+            box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Particle Background -->
+    <div id="particle-container" class="particle-canvas"></div>
+
+    <div class="content-layer">
+        <!-- Navigation -->
+        <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center">
+                            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                        </div>
+                        <h1 class="font-cinzel text-xl font-semibold text-forest">Impostazioni Profilo</h1>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <a href="/dashboard.html" class="text-gray-600 hover:text-forest transition-colors">
+                            ← Torna alla Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <!-- Profile Header -->
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-8 mb-6">
+                <div class="flex items-center space-x-6">
+                    <div
+                        class="w-24 h-24 bg-gradient-to-br from-forest to-mystic rounded-full flex items-center justify-center">
+                        <span class="text-white font-cinzel font-bold text-4xl" id="profile-initial">U</span>
+                    </div>
+                    <div>
+                        <h2 class="font-cinzel text-2xl font-bold text-forest" id="profile-name">User Name</h2>
+                        <p class="text-gray-600" id="profile-email">user@example.com</p>
+                        <p class="text-sm text-gray-500 mt-1">Membro dal <span id="member-since">2025</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Information -->
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-8 mb-6">
+                <h3 class="font-cinzel text-xl font-bold text-forest mb-6">Informazioni Profilo</h3>
+
+                <form id="profile-form" class="space-y-6">
+                    <div>
+                        <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nome Completo
+                        </label>
+                        <input type="text" id="name" name="name" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent transition-all"
+                            placeholder="Inserisci il tuo nome">
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Indirizzo Email
+                        </label>
+                        <input type="email" id="email" name="email" required disabled
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                            placeholder="tuo@email.com">
+                        <p class="text-xs text-gray-500 mt-1">L'email non può essere modificata</p>
+                    </div>
+
+                    <div id="success-message"
+                        class="hidden bg-emerald/10 border border-emerald text-emerald px-4 py-3 rounded-lg text-sm">
+                        Profilo aggiornato con successo!
+                    </div>
+
+                    <div id="error-message"
+                        class="hidden bg-deep-red/10 border border-deep-red text-deep-red px-4 py-3 rounded-lg text-sm">
+                    </div>
+
+                    <button type="submit" id="save-btn"
+                        class="w-full bg-forest text-white py-3 rounded-lg font-semibold mystical-glow hover:bg-forest/90 transition-all">
+                        Salva Modifiche
+                    </button>
+                </form>
+            </div>
+
+            <!-- Role Selection -->
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-8 mb-6">
+                <h3 class="font-cinzel text-xl font-bold text-forest mb-4">Ruolo nella Gilda</h3>
+                <p class="text-gray-600 mb-6">Seleziona il tuo ruolo. I Dungeon Master possono creare e gestire
+                    sessioni, mentre i Giocatori partecipano alle sessioni create.</p>
+
+                <div class="flex gap-4 mb-4">
+                    <button id="role-player-btn" onclick="changeRole('player')"
+                        class="flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 hover:shadow-lg">
+                        <span class="text-3xl">🎮</span>
+                        <span class="font-semibold text-lg">Giocatore</span>
+                        <span class="text-xs text-gray-500">Partecipa alle sessioni</span>
+                    </button>
+                    <button id="role-dm-btn" onclick="changeRole('dm')"
+                        class="flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 hover:shadow-lg">
+                        <span class="text-3xl">🧙</span>
+                        <span class="font-semibold text-lg">Dungeon Master</span>
+                        <span class="text-xs text-gray-500">Crea e gestisce sessioni</span>
+                    </button>
+                </div>
+
+                <div id="role-success"
+                    class="hidden bg-emerald/10 border border-emerald text-emerald px-4 py-3 rounded-lg text-sm">
+                    Ruolo aggiornato con successo!
+                </div>
+                <div id="role-error"
+                    class="hidden bg-deep-red/10 border border-deep-red text-deep-red px-4 py-3 rounded-lg text-sm">
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-8 mb-6">
+                <h3 class="font-cinzel text-xl font-bold text-forest mb-6">Cambia Password</h3>
+
+                <form id="password-form" class="space-y-6">
+                    <div>
+                        <label for="current-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Password Attuale
+                        </label>
+                        <input type="password" id="current-password" name="current-password" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent transition-all"
+                            placeholder="Inserisci password attuale">
+                    </div>
+
+                    <div>
+                        <label for="new-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Nuova Password
+                        </label>
+                        <input type="password" id="new-password" name="new-password" required minlength="8"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent transition-all"
+                            placeholder="Almeno 8 caratteri">
+                    </div>
+
+                    <div>
+                        <label for="confirm-new-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Conferma Nuova Password
+                        </label>
+                        <input type="password" id="confirm-new-password" name="confirm-new-password" required
+                            minlength="8"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent transition-all"
+                            placeholder="Reinserisci nuova password">
+                    </div>
+
+                    <div id="password-success"
+                        class="hidden bg-emerald/10 border border-emerald text-emerald px-4 py-3 rounded-lg text-sm">
+                        Password cambiata con successo!
+                    </div>
+
+                    <div id="password-error"
+                        class="hidden bg-deep-red/10 border border-deep-red text-deep-red px-4 py-3 rounded-lg text-sm">
+                    </div>
+
+                    <button type="submit" id="password-btn"
+                        class="w-full bg-forest text-white py-3 rounded-lg font-semibold mystical-glow hover:bg-forest/90 transition-all">
+                        Cambia Password
+                    </button>
+                </form>
+            </div>
+
+            <!-- Privacy & Data - GDPR Section -->
+            <div class="bg-white rounded-xl shadow-lg mystical-glow p-8 mb-6">
+                <h3 class="font-cinzel text-xl font-bold text-forest mb-4">Privacy & Dati</h3>
+                <p class="text-gray-600 mb-6">Gestisci le tue preferenze di consenso e i tuoi dati personali in
+                    conformità con il GDPR.</p>
+
+                <!-- Consent Toggles -->
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <label for="consent-marketing" class="font-semibold text-gray-700">Comunicazioni
+                                Marketing</label>
+                            <p class="text-sm text-gray-500">Ricevi aggiornamenti su nuove funzionalità e novità</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="consent-marketing-toggle" class="sr-only peer">
+                            <div
+                                class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forest">
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <label for="consent-analytics" class="font-semibold text-gray-700">Cookie Analitici</label>
+                            <p class="text-sm text-gray-500">Aiutaci a migliorare il servizio con dati anonimi</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="consent-analytics-toggle" class="sr-only peer">
+                            <div
+                                class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forest">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="consent-success"
+                    class="hidden bg-emerald/10 border border-emerald text-emerald px-4 py-3 rounded-lg text-sm mb-4">
+                    Preferenze di consenso aggiornate!
+                </div>
+
+                <!-- Data Export -->
+                <div class="border-t border-gray-200 pt-6">
+                    <h4 class="font-semibold text-gray-700 mb-2">📦 Esporta i tuoi Dati</h4>
+                    <p class="text-sm text-gray-500 mb-4">Scarica una copia di tutti i tuoi dati personali (Art. 20 GDPR
+                        - Diritto alla portabilità).</p>
+                    <button onclick="exportUserData()" id="export-btn"
+                        class="bg-forest/10 text-forest border border-forest/20 px-6 py-3 rounded-lg font-semibold hover:bg-forest/20 transition-all">
+                        Scarica i tuoi Dati
+                    </button>
+                </div>
+
+                <!-- Links -->
+                <div class="border-t border-gray-200 pt-6 mt-6 flex flex-wrap gap-4">
+                    <a href="/privacy-policy.html" class="text-forest hover:underline text-sm">📋 Privacy Policy</a>
+                    <a href="/cookie-policy.html" class="text-forest hover:underline text-sm">🍪 Cookie Policy</a>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="bg-white rounded-xl shadow-lg border-2 border-deep-red/20 p-8">
+                <h3 class="font-cinzel text-xl font-bold text-deep-red mb-4">Zona Pericolosa</h3>
+                <p class="text-gray-600 mb-4">Una volta eliminato il tuo account, non si può tornare indietro. Tutti i
+                    tuoi dati verranno rimossi permanentemente.
+                </p>
+
+                <button onclick="showDeleteModal()"
+                    class="bg-deep-red text-white px-6 py-3 rounded-lg font-semibold hover:bg-deep-red/90 transition-all">
+                    Elimina Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="hideDeleteModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative">
+                <h3 class="font-cinzel text-xl font-bold text-deep-red mb-4">⚠️ Elimina Account</h3>
+                <p class="text-gray-600 mb-6">
+                    Questa azione è <strong>irreversibile</strong>. Tutti i tuoi dati, incluse sessioni, disponibilità e
+                    preferenze, verranno eliminati permanentemente.
+                </p>
+
+                <form id="delete-form" onsubmit="confirmDeleteAccount(event)">
+                    <div class="mb-4">
+                        <label for="delete-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Password per confermare
+                        </label>
+                        <input type="password" id="delete-password" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-deep-red focus:border-transparent"
+                            placeholder="Inserisci la tua password">
+                    </div>
+
+                    <div class="mb-6">
+                        <label for="delete-confirm" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Scrivi "ELIMINA" per confermare
+                        </label>
+                        <input type="text" id="delete-confirm" required pattern="ELIMINA"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-deep-red focus:border-transparent"
+                            placeholder="ELIMINA">
+                    </div>
+
+                    <div id="delete-error"
+                        class="hidden bg-deep-red/10 border border-deep-red text-deep-red px-4 py-3 rounded-lg text-sm mb-4">
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="button" onclick="hideDeleteModal()"
+                            class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-all">
+                            Annulla
+                        </button>
+                        <button type="submit" id="delete-submit-btn"
+                            class="flex-1 bg-deep-red text-white py-3 rounded-lg font-semibold hover:bg-deep-red/90 transition-all">
+                            Elimina Definitivamente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/nav-protection.js"></script>
+    <script src="js/particles.js"></script>
+
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Require authentication
+        window.authManager.requireAuth('/profile.html');
+
+        // Load user data
+        const user = window.authManager.user;
+        if (user) {
+            document.getElementById('profile-name').textContent = user.name;
+            document.getElementById('profile-email').textContent = user.email;
+            document.getElementById('profile-initial').textContent = user.name.charAt(0).toUpperCase();
+            document.getElementById('name').value = user.name;
+            document.getElementById('email').value = user.email;
+
+            const memberSince = new Date(user.created_at * 1000).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long'
+            });
+            document.getElementById('member-since').textContent = memberSince;
+
+            // Initialize role display
+            updateRoleUI(user.role || 'player');
+        }
+
+        // =====================================================================
+        // ROLE CHANGE FUNCTIONS
+        // =====================================================================
+
+        function updateRoleUI(currentRole) {
+            const playerBtn = document.getElementById('role-player-btn');
+            const dmBtn = document.getElementById('role-dm-btn');
+
+            // Reset both buttons
+            playerBtn.className = 'flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 hover:shadow-lg';
+            dmBtn.className = 'flex-1 p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 hover:shadow-lg';
+
+            if (currentRole === 'dm') {
+                dmBtn.classList.add('border-forest', 'bg-forest/10', 'text-forest');
+                playerBtn.classList.add('border-gray-200', 'text-gray-600');
+            } else {
+                playerBtn.classList.add('border-forest', 'bg-forest/10', 'text-forest');
+                dmBtn.classList.add('border-gray-200', 'text-gray-600');
+            }
+        }
+
+        async function changeRole(newRole) {
+            const successDiv = document.getElementById('role-success');
+            const errorDiv = document.getElementById('role-error');
+            const playerBtn = document.getElementById('role-player-btn');
+            const dmBtn = document.getElementById('role-dm-btn');
+
+            successDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+
+            // Check if already this role
+            const currentUser = window.authManager.user;
+            if (currentUser && currentUser.role === newRole) {
+                return; // Already this role
+            }
+
+            // Disable buttons during update
+            playerBtn.disabled = true;
+            dmBtn.disabled = true;
+
+            try {
+                const token = localStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+                }
+
+                const response = await fetch('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ role: newRole })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Errore cambio ruolo');
+                }
+
+                const updatedUser = await response.json();
+
+                // Update localStorage and UI
+                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                window.authManager.user = updatedUser;
+
+                updateRoleUI(newRole);
+                successDiv.classList.remove('hidden');
+
+                setTimeout(() => {
+                    successDiv.classList.add('hidden');
+                }, 3000);
+
+            } catch (error) {
+                console.error('Role change error:', error);
+                errorDiv.textContent = error.message || 'Impossibile cambiare ruolo';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                playerBtn.disabled = false;
+                dmBtn.disabled = false;
+            }
+        }
+
+        // Profile form submission (placeholder - needs backend endpoint)
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const successDiv = document.getElementById('success-message');
+            const errorDiv = document.getElementById('error-message');
+            const saveBtn = document.getElementById('save-btn');
+
+            successDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                // Call backend API to update profile
+                const token = localStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+                }
+
+                const response = await fetch('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Errore aggiornamento profilo');
+                }
+
+                const updatedUser = await response.json();
+
+                // Update localStorage and UI
+                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                window.authManager.user = updatedUser;
+
+                document.getElementById('profile-name').textContent = name;
+                document.getElementById('profile-initial').textContent = name.charAt(0).toUpperCase();
+
+                successDiv.classList.remove('hidden');
+
+                setTimeout(() => {
+                    successDiv.classList.add('hidden');
+                }, 3000);
+
+            } catch (error) {
+                console.error('Profile update error:', error);
+                errorDiv.textContent = error.message || 'Failed to update profile';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Salva Modifiche';
+            }
+        });
+
+        // Password form submission (placeholder - needs backend endpoint)
+        document.getElementById('password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-new-password').value;
+            const successDiv = document.getElementById('password-success');
+            const errorDiv = document.getElementById('password-error');
+            const passwordBtn = document.getElementById('password-btn');
+
+            successDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'Le nuove password non corrispondono';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            passwordBtn.disabled = true;
+            passwordBtn.textContent = 'Changing password...';
+
+            try {
+                // Call backend API to change password
+                const token = localStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+                }
+
+                const response = await fetch('/api/auth/password', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Errore cambio password');
+                }
+
+                // Success - password changed, sessions invalidated
+                successDiv.classList.remove('hidden');
+
+                // Clear form
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-new-password').value = '';
+
+                // User will be logged out since sessions are invalidated
+                setTimeout(() => {
+                    alert('Password cambiata con successo. Effettua nuovamente il login.');
+                    localStorage.removeItem('authToken');
+                    window.location.href = '/login.html';
+                }, 2000);
+
+            } catch (error) {
+                console.error('Password change error:', error);
+                errorDiv.textContent = error.message || 'Impossibile cambiare la password';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                passwordBtn.disabled = false;
+                passwordBtn.textContent = 'Cambia Password';
+            }
+        });
+
+        // =====================================================================
+        // GDPR Functions
+        // =====================================================================
+
+        // Load consent preferences on page load
+        async function loadConsentPreferences() {
+            try {
+                const token = localStorage.getItem('userToken');
+                if (!token) return;
+
+                const response = await fetch('/api/gdpr/consent', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('consent-marketing-toggle').checked = data.consent_marketing;
+                    document.getElementById('consent-analytics-toggle').checked = data.consent_analytics;
+                }
+            } catch (error) {
+                console.error('Failed to load consent preferences:', error);
+            }
+        }
+
+        // Save consent preference
+        async function saveConsentPreference(type, value) {
+            try {
+                const token = localStorage.getItem('userToken');
+                if (!token) return;
+
+                const payload = {};
+                payload[type] = value;
+
+                const response = await fetch('/api/gdpr/consent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const successDiv = document.getElementById('consent-success');
+                    successDiv.classList.remove('hidden');
+                    setTimeout(() => successDiv.classList.add('hidden'), 3000);
+                }
+            } catch (error) {
+                console.error('Failed to save consent:', error);
+            }
+        }
+
+        // Consent toggle event listeners
+        document.getElementById('consent-marketing-toggle').addEventListener('change', (e) => {
+            saveConsentPreference('consent_marketing', e.target.checked);
+        });
+
+        document.getElementById('consent-analytics-toggle').addEventListener('change', (e) => {
+            saveConsentPreference('consent_analytics', e.target.checked);
+        });
+
+        // Export user data
+        async function exportUserData() {
+            const btn = document.getElementById('export-btn');
+            btn.disabled = true;
+            btn.textContent = 'Esportazione in corso...';
+
+            try {
+                const token = localStorage.getItem('userToken');
+                if (!token) {
+                    alert('Sessione scaduta. Effettua nuovamente il login.');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const response = await fetch('/api/gdpr/export', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Create download
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `dnd_scheduler_export_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    alert('Errore durante esportazione: ' + (errorData.error || 'Riprova più tardi.'));
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Errore di connessione. Riprova più tardi.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Scarica i tuoi Dati';
+            }
+        }
+
+        // Delete account modal functions
+        function showDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.getElementById('delete-password').value = '';
+            document.getElementById('delete-confirm').value = '';
+            document.getElementById('delete-error').classList.add('hidden');
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+        }
+
+        async function confirmDeleteAccount(e) {
+            e.preventDefault();
+
+            const password = document.getElementById('delete-password').value;
+            const confirmation = document.getElementById('delete-confirm').value;
+            const errorDiv = document.getElementById('delete-error');
+            const submitBtn = document.getElementById('delete-submit-btn');
+
+            errorDiv.classList.add('hidden');
+
+            if (confirmation !== 'ELIMINA') {
+                errorDiv.textContent = 'Devi scrivere "ELIMINA" per confermare.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Eliminazione...';
+
+            try {
+                const token = localStorage.getItem('userToken');
+                if (!token) {
+                    alert('Sessione scaduta. Effettua nuovamente il login.');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const response = await fetch('/api/gdpr/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        password: password,
+                        confirmation: confirmation
+                    })
+                });
+
+                if (response.ok || response.status === 204) {
+                    alert('Account eliminato con successo. Ci dispiace vederti andare via!');
+                    localStorage.clear();
+                    window.location.href = '/';
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    errorDiv.textContent = errorData.error || 'Errore durante l\'eliminazione. Riprova.';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Delete account error:', error);
+                errorDiv.textContent = 'Errore di connessione. Riprova più tardi.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Elimina Definitivamente';
+            }
+        }
+
+        // Load consent preferences on page load
+        loadConsentPreferences();
+    </script>
+    <script src="js/cookie-consent.js"></script>
+</body>
+
+</html>

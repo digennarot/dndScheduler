@@ -1,0 +1,458 @@
+/* ============================================================================
+   D&D THEME - BLACK & RED
+   Classic Dungeons & Dragons color scheme
+   ============================================================================ */
+
+:root {
+  /* Primary Colors - D&D Black & Red */
+  --dnd-black: #0a0a0a;
+  --dnd-dark: #1a1a1a;
+  --dnd-darker: #121212;
+  --dnd-red: #dc2626;
+  --dnd-red-dark: #991b1b;
+  --dnd-red-light: #ef4444;
+  --dnd-crimson: #8b0000;
+  
+  /* Accent Colors */
+  --dnd-gold: #fbbf24;
+  --dnd-gold-dark: #d97706;
+  
+  /* Text Colors */
+  --text-primary: #f5f5f5;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  
+  /* Border & Divider */
+  --border-color: #374151;
+  --border-light: #4b5563;
+  
+  /* Shadows */
+  --shadow-red: 0 4px 20px rgba(220, 38, 38, 0.3);
+  --shadow-red-lg: 0 8px 30px rgba(220, 38, 38, 0.4);
+  --shadow-dark: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================================
+   GLOBAL STYLES
+   ============================================================================ */
+
+body {
+  background: linear-gradient(135deg, var(--dnd-black) 0%, var(--dnd-darker) 50%, var(--dnd-dark) 100%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* Background Pattern Overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(220, 38, 38, 0.03) 2px,
+      rgba(220, 38, 38, 0.03) 4px
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.content-layer {
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================================================
+   NAVIGATION
+   ============================================================================ */
+
+nav {
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--dnd-red) !important;
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.2);
+}
+
+nav a {
+  color: var(--text-secondary) !important;
+  transition: all 0.3s ease;
+}
+
+nav a:hover {
+  color: var(--dnd-red-light) !important;
+}
+
+nav a.active,
+nav a[class*="border-"] {
+  color: var(--dnd-red) !important;
+  border-color: var(--dnd-red) !important;
+}
+
+/* Logo */
+.logo-container {
+  background: linear-gradient(135deg, var(--dnd-red) 0%, var(--dnd-crimson) 100%) !important;
+  box-shadow: var(--shadow-red);
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+button,
+.btn {
+  transition: all 0.3s ease;
+}
+
+/* Primary Button - Red */
+button[class*="bg-forest"],
+button[class*="bg-amber"],
+.btn-primary {
+  background: linear-gradient(135deg, var(--dnd-red) 0%, var(--dnd-red-dark) 100%) !important;
+  color: white !important;
+  border: 1px solid var(--dnd-red-dark);
+  box-shadow: var(--shadow-red);
+}
+
+button[class*="bg-forest"]:hover,
+button[class*="bg-amber"]:hover,
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--dnd-red-light) 0%, var(--dnd-red) 100%) !important;
+  box-shadow: var(--shadow-red-lg);
+  transform: translateY(-2px);
+}
+
+/* Secondary Button - Outlined */
+button[class*="border-gray"],
+.btn-secondary {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-color) !important;
+}
+
+button[class*="border-gray"]:hover,
+.btn-secondary:hover {
+  background: rgba(220, 38, 38, 0.1) !important;
+  border-color: var(--dnd-red) !important;
+  color: var(--dnd-red-light) !important;
+}
+
+/* ============================================================================
+   CARDS & CONTAINERS
+   ============================================================================ */
+
+.mystical-glow,
+.card,
+[class*="bg-white"] {
+  background: var(--dnd-dark) !important;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-dark);
+  color: var(--text-primary);
+}
+
+.mystical-glow:hover {
+  box-shadow: var(--shadow-red);
+  border-color: var(--dnd-red);
+  transform: translateY(-2px);
+}
+
+/* ============================================================================
+   FORMS
+   ============================================================================ */
+
+input,
+textarea,
+select {
+  background: var(--dnd-darker) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  transition: all 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--dnd-red) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+label {
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   STEP INDICATORS
+   ============================================================================ */
+
+.step-indicator {
+  border: 2px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.step-active {
+  background: linear-gradient(135deg, var(--dnd-red) 0%, var(--dnd-crimson) 100%) !important;
+  border-color: var(--dnd-red) !important;
+  box-shadow: var(--shadow-red);
+}
+
+.step-completed {
+  background: linear-gradient(135deg, var(--dnd-red-dark) 0%, var(--dnd-crimson) 100%) !important;
+  border-color: var(--dnd-red-dark) !important;
+}
+
+.step-inactive {
+  background: var(--dnd-darker) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* ============================================================================
+   TIME SLOTS
+   ============================================================================ */
+
+.time-slot {
+  background: var(--dnd-darker);
+  border: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.time-slot:hover {
+  border-color: var(--dnd-red);
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--dnd-red-light);
+}
+
+.time-slot.selected {
+  border-color: var(--dnd-red);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(139, 0, 0, 0.2) 100%);
+  color: var(--dnd-red-light);
+  font-weight: 600;
+  box-shadow: var(--shadow-red);
+}
+
+/* ============================================================================
+   PARTICIPANT CHIPS
+   ============================================================================ */
+
+.participant-chip {
+  background: rgba(220, 38, 38, 0.15);
+  color: var(--dnd-red-light);
+  border: 1px solid var(--dnd-red-dark);
+}
+
+.participant-chip:hover {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: var(--dnd-red);
+}
+
+/* ============================================================================
+   AURORA BACKGROUND
+   ============================================================================ */
+
+.aurora-bg {
+  background: linear-gradient(45deg,
+      rgba(220, 38, 38, 0.1) 0%,
+      rgba(139, 0, 0, 0.1) 25%,
+      rgba(10, 10, 10, 0.1) 50%,
+      rgba(220, 38, 38, 0.1) 75%,
+      rgba(139, 0, 0, 0.1) 100%);
+  background-size: 400% 400%;
+  animation: aurora 20s ease-in-out infinite;
+}
+
+@keyframes aurora {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* ============================================================================
+   HEADINGS
+   ============================================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary) !important;
+}
+
+.font-cinzel {
+  text-shadow: 0 2px 10px rgba(220, 38, 38, 0.3);
+}
+
+/* ============================================================================
+   INFO BOXES
+   ============================================================================ */
+
+[class*="bg-amber"],
+[class*="bg-emerald"],
+[class*="bg-mystic"] {
+  background: rgba(220, 38, 38, 0.1) !important;
+  border: 1px solid var(--dnd-red-dark);
+  color: var(--text-primary) !important;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
+
+footer {
+  background: var(--dnd-black) !important;
+  border-top: 2px solid var(--dnd-red);
+  color: var(--text-secondary) !important;
+}
+
+footer a {
+  color: var(--dnd-red-light) !important;
+}
+
+footer a:hover {
+  color: var(--dnd-red) !important;
+}
+
+/* ============================================================================
+   PARTICLES
+   ============================================================================ */
+
+.particle-canvas {
+  opacity: 0.3;
+  filter: hue-rotate(180deg) saturate(2);
+}
+
+/* ============================================================================
+   SCROLLBAR
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dnd-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dnd-red-dark);
+  border-radius: 6px;
+  border: 2px solid var(--dnd-black);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dnd-red);
+}
+
+/* ============================================================================
+   ANIMATIONS
+   ============================================================================ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-step.active {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.text-forest,
+.text-amber,
+.text-mystic {
+  color: var(--dnd-red) !important;
+}
+
+.text-gray-600,
+.text-gray-700 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+.border-amber,
+.border-forest {
+  border-color: var(--dnd-red) !important;
+}
+
+.bg-gray-50 {
+  background: var(--dnd-darker) !important;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  nav {
+    padding: 0.5rem 1rem;
+  }
+  
+  .mystical-glow {
+    padding: 1.5rem !important;
+  }
+}
+
+/* ============================================================================
+   FLATPICKR DARK THEME
+   ============================================================================ */
+
+.flatpickr-calendar {
+  background: var(--dnd-dark) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-dark);
+}
+
+.flatpickr-months {
+  background: var(--dnd-darker) !important;
+}
+
+.flatpickr-current-month {
+  color: var(--text-primary) !important;
+}
+
+.flatpickr-weekday {
+  color: var(--text-muted) !important;
+}
+
+.flatpickr-day {
+  color: var(--text-secondary) !important;
+}
+
+.flatpickr-day:hover {
+  background: rgba(220, 38, 38, 0.2) !important;
+  border-color: var(--dnd-red) !important;
+}
+
+.flatpickr-day.selected {
+  background: var(--dnd-red) !important;
+  border-color: var(--dnd-red) !important;
+  color: white !important;
+}
+
+.flatpickr-day.today {
+  border-color: var(--dnd-red-light) !important;
+}

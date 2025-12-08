@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Admin Cache</title>
+    <meta name="robots" content="noindex, nofollow">
+    <!-- SECURITY WARNING: This page should NOT be accessible in production -->
+    <!-- Set appropriate server rules to block access or require authentication -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #d4a574;
+            border-bottom: 2px solid #d4a574;
+            padding-bottom: 10px;
+        }
+        .info-box {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #4a7c59;
+        }
+        .warning-box {
+            background: #3d1f1f;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #8b2635;
+        }
+        button {
+            background: #d4a574;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #b87333;
+        }
+        button.danger {
+            background: #8b2635;
+            color: white;
+        }
+        button.danger:hover {
+            background: #6b1a27;
+        }
+        pre {
+            background: #0f0f0f;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            color: #4a7c59;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #1a3d2e;
+            border: 2px solid #4a7c59;
+            color: #4a7c59;
+        }
+        .status.error {
+            background: #3d1f1f;
+            border: 2px solid #8b2635;
+            color: #ff6b6b;
+        }
+        a {
+            color: #d4a574;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Admin Cache & LocalStorage Manager</h1>
+
+        <div class="warning-box">
+            <strong>⚠️ Attenzione:</strong> Questa pagina ti aiuta a risolvere il problema dell'email hardcoded "admin@example.com" che continua a comparire.
+        </div>
+
+        <div class="info-box">
+            <h3>📋 Stato LocalStorage Corrente:</h3>
+            <div id="storage-info">Caricamento...</div>
+        </div>
+
+        <h2>🔨 Azioni Disponibili:</h2>
+
+        <button onclick="showLocalStorage()">
+            📊 Mostra Dati LocalStorage
+        </button>
+
+        <button onclick="clearAdminData()" class="danger">
+            🗑️ Pulisci Dati Admin (Token + User)
+        </button>
+
+        <button onclick="clearAllLocalStorage()" class="danger">
+            💣 Cancella TUTTO LocalStorage
+        </button>
+
+        <button onclick="window.location.href='/admin.html'">
+            🏠 Vai a Admin Panel
+        </button>
+
+        <div id="status"></div>
+
+        <div class="info-box" style="margin-top: 30px;">
+            <h3>💡 Come Risolvere il Problema:</h3>
+            <ol>
+                <li>Clicca su "Pulisci Dati Admin" per rimuovere i dati vecchi</li>
+                <li>Vai alla pagina Admin cliccando su "Vai a Admin Panel"</li>
+                <li>Fai di nuovo il login con la tua email</li>
+                <li>Ora dovresti vedere la TUA email invece di "admin@example.com"</li>
+            </ol>
+        </div>
+
+        <div class="warning-box">
+            <h3>🐛 Debug Console</h3>
+            <p>Apri la Developer Console (F12) per vedere i log dettagliati di cosa sta succedendo.</p>
+            <p>I log iniziano con "updateUserDisplay()" e mostrano quale email viene impostata.</p>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status ' + (isError ? 'error' : 'success');
+            statusDiv.innerHTML = message;
+            statusDiv.style.display = 'block';
+        }
+
+        function showLocalStorage() {
+            const token = localStorage.getItem('adminToken');
+            const user = localStorage.getItem('adminUser');
+
+            let html = '<pre>';
+            html += 'adminToken: ' + (token ? token.substring(0, 20) + '...' : 'NON PRESENTE') + '\n';
+            html += '\nadminUser: ' + (user ? user : 'NON PRESENTE');
+            html += '</pre>';
+
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    html += '<h4>📧 Email salvata in localStorage:</h4>';
+                    html += '<pre>' + JSON.stringify(userData, null, 2) + '</pre>';
+                } catch (e) {
+                    html += '<p style="color: #ff6b6b;">❌ Errore nel parsing dei dati utente!</p>';
+                }
+            }
+
+            document.getElementById('storage-info').innerHTML = html;
+            showStatus('✅ Dati visualizzati nella console', false);
+        }
+
+        function clearAdminData() {
+            if (confirm('Sei sicuro di voler cancellare i dati admin? Dovrai fare di nuovo il login.')) {
+                const hadToken = localStorage.getItem('adminToken') !== null;
+                const hadUser = localStorage.getItem('adminUser') !== null;
+
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+
+                console.log('Dati admin rimossi da localStorage');
+
+                let message = '✅ Dati admin cancellati!<br><br>';
+                message += 'Token rimosso: ' + (hadToken ? 'SI' : 'NO') + '<br>';
+                message += 'User rimosso: ' + (hadUser ? 'SI' : 'NO') + '<br><br>';
+                message += '➡️ Ora puoi andare alla pagina admin e fare di nuovo il login.';
+
+                showStatus(message, false);
+                showLocalStorage();
+            }
+        }
+
+        function clearAllLocalStorage() {
+            if (confirm('⚠️ ATTENZIONE! Questo cancellerà TUTTI i dati salvati nel localStorage. Sei sicuro?')) {
+                const count = localStorage.length;
+                localStorage.clear();
+                console.log('LocalStorage completamente svuotato');
+                showStatus('✅ LocalStorage completamente cancellato! (' + count + ' elementi rimossi)', false);
+                showLocalStorage();
+            }
+        }
+
+        // Show initial state
+        window.onload = function() {
+            showLocalStorage();
+
+            console.log('%c🔧 Admin Cache Manager Loaded', 'color: #d4a574; font-size: 16px; font-weight: bold;');
+            console.log('%cDati attuali in localStorage:', 'color: #4a7c59; font-weight: bold;');
+            console.log('adminToken:', localStorage.getItem('adminToken'));
+            console.log('adminUser:', localStorage.getItem('adminUser'));
+        };
+    </script>
+</body>
+</html>
