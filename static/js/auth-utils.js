@@ -1,11 +1,27 @@
 // Authentication Utilities with Authelia SSO Support
+// Updated for backward compatibility with auth.js
 class AuthManager {
     constructor() {
-        this.TOKEN_KEY = 'dnd_session_token';
-        this.USER_KEY = 'dnd_user_data';
+        // Use standard keys for compatibility with availability-manager.js and other scripts
+        this.TOKEN_KEY = 'authToken';
+        this.USER_KEY = 'currentUser';
         this.AUTHELIA_CONFIG_KEY = 'authelia_config';
         this._autheliaConfig = null;
     }
+
+    // --- Legacy Compatibility Getters/Methods ---
+    get user() {
+        return this.getUser();
+    }
+
+    getCurrentUser() {
+        return this.getUser();
+    }
+
+    isLoggedIn() {
+        return this.isAuthenticated();
+    }
+    // ---------------------------------------------
 
     /**
      * Get Authelia SSO configuration from server
@@ -27,6 +43,84 @@ class AuthManager {
         }
 
         return { enabled: false, login_url: null, logout_url: null };
+    }
+
+    /**
+     * Get Google Auth configuration from server
+     */
+    async getGoogleConfig() {
+        try {
+            const response = await fetch('/api/auth/google/config');
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.warn('Failed to fetch Google config:', error);
+        }
+        return { client_id: null };
+    }
+
+    /**
+     * Initialize Google Sign-In Button
+     */
+    async initGoogleLogin(containerId) {
+        const config = await this.getGoogleConfig();
+        const container = document.getElementById(containerId);
+
+        if (!config.client_id) {
+            console.log('Google Auth not configured (no client_id)');
+            if (container) {
+                container.innerHTML = '<span class="text-orange-500 text-sm font-bold">Debug: Google Auth Disabled (Backend returned no client_id)</span>';
+            }
+            return;
+        }
+
+        console.log('Initializing Google Auth with Client ID:', config.client_id);
+
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds
+
+        const render = () => {
+            if (window.google && window.google.accounts) {
+                try {
+                    window.google.accounts.id.initialize({
+                        client_id: config.client_id,
+                        callback: window.handleGoogleLogin,
+                        auto_select: false,
+                        cancel_on_tap_outside: true
+                    });
+
+                    window.google.accounts.id.renderButton(
+                        container,
+                        { theme: "outline", size: "large", width: "100%" }
+                    );
+                    console.log('Google Sign-In initialized');
+
+                    // Remove loading text if it exists (Google button replaces content, but just in case)
+                    // The renderButton method replaces the contents of the container, 
+                    // so the "Caricamento..." text will be removed automatically if successful.
+
+                } catch (e) {
+                    console.error('Google Auth Init Error:', e);
+                    if (container) {
+                        container.innerHTML = `<span class="text-red-500 text-sm">Errore Google: ${e.message}</span>`;
+                    }
+                }
+            } else {
+                attempts++;
+                if (attempts > maxAttempts) {
+                    console.error('Google Identity Services script timeout');
+                    if (container) {
+                        container.innerHTML = '<span class="text-red-500 text-sm">Timeout: Impossibile caricare Google Script. Controlla la connessione o disabilita AdBlock.</span>';
+                    }
+                    return;
+                }
+                console.log(`Waiting for Google Identity Services... (${attempts}/${maxAttempts})`);
+                setTimeout(render, 100);
+            }
+        };
+
+        render();
     }
 
     /**
@@ -88,6 +182,7 @@ class AuthManager {
         // Clear local data
         this.setToken(null);
         this.setUser(null);
+        localStorage.removeItem('rememberMe'); // Clear legacy flag if present
 
         // If Authelia is enabled, redirect to Authelia logout
         if (config.enabled && config.logout_url) {
@@ -148,29 +243,38 @@ class AuthManager {
         // First check for Authelia session (if enabled and behind ForwardAuth)
         const autheliaUser = await this.checkAutheliaSession();
         if (autheliaUser) {
+            console.log('✅ Authelia session verified');
             return true;
         }
 
         // Fall back to local token verification
         const token = this.getToken();
         if (!token) {
+            console.log('❌ No token found in localStorage');
             return false;
         }
 
+        console.log('🔍 Verifying session with token:', token.substring(0, 8) + '...');
+
         try {
             const response = await fetch(`/api/auth/me/${token}`);
+            console.log('📡 Session verification response status:', response.status);
+
             if (response.ok) {
                 const user = await response.json();
                 this.setUser(user);
+                console.log('✅ Session verified for user:', user.name);
                 return true;
             } else {
                 // Session invalid, clear local data
+                const errorText = await response.text();
+                console.error('❌ Session invalid:', response.status, errorText);
                 this.setToken(null);
                 this.setUser(null);
                 return false;
             }
         } catch (error) {
-            console.error('Session verification failed:', error);
+            console.error('❌ Session verification failed:', error);
             return false;
         }
     }
@@ -181,22 +285,37 @@ class AuthManager {
      * @param {string} redirectUrl - Optional URL to redirect back to after login
      */
     async requireAuth(redirectUrl = null) {
+        console.log('🔐 [requireAuth] Starting authentication check...');
+        console.log('🔐 [requireAuth] Current page:', window.location.href);
+
         const isValid = await this.verifySession();
 
+        console.log('🔐 [requireAuth] verifySession result:', isValid);
+
         if (!isValid) {
+            console.log('❌ [requireAuth] Session invalid, preparing redirect...');
+
             // Store the intended destination
             const returnUrl = redirectUrl || window.location.pathname + window.location.search;
+            console.log('🔐 [requireAuth] Return URL:', returnUrl);
+
             sessionStorage.setItem('auth_return_url', returnUrl);
 
             // Try Authelia redirect first
+            console.log('🔐 [requireAuth] Checking Authelia...');
             const redirected = await this.redirectToAutheliaLogin();
+
             if (!redirected) {
+                console.log('🔐 [requireAuth] No Authelia, redirecting to login page...');
                 // Fall back to local login page
-                window.location.href = '/login.html';
+                window.location.href = `/login.html?return=${encodeURIComponent(returnUrl)}`;
+            } else {
+                console.log('🔐 [requireAuth] Redirecting via Authelia...');
             }
             return false;
         }
 
+        console.log('✅ [requireAuth] Authentication successful!');
         return true;
     }
 
@@ -205,6 +324,7 @@ class AuthManager {
      */
     async login(email, password) {
         try {
+            console.log('🔐 Attempting login for:', email);
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -215,16 +335,22 @@ class AuthManager {
 
             if (!response.ok) {
                 const error = await response.text();
-                throw new Error(error || 'Login failed');
+                console.error('❌ Login failed:', response.status, error);
+                throw new Error(error || 'Login fallito');
             }
 
             const data = await response.json();
+            console.log('✅ Login successful, received token:', data.token.substring(0, 8) + '...');
+            console.log('👤 User data:', data.user);
+
             this.setToken(data.token);
             this.setUser(data.user);
 
+            console.log('💾 Token and user saved to localStorage');
+
             return data;
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('❌ Login error:', error);
             throw error;
         }
     }
@@ -244,7 +370,7 @@ class AuthManager {
 
             if (!response.ok) {
                 const error = await response.text();
-                throw new Error(error || 'Registration failed');
+                throw new Error(error || 'Registrazione fallita');
             }
 
             const data = await response.json();
@@ -254,6 +380,34 @@ class AuthManager {
             return data;
         } catch (error) {
             console.error('Registration error:', error);
+            throw error;
+        }
+    }
+
+    // Google Login
+    async loginWithGoogle(credential) {
+        try {
+            console.log('🔐 Attempting Google login...');
+            const response = await fetch('/api/auth/google/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Google login failed');
+            }
+
+            const data = await response.json();
+            console.log('✅ Google Login successful');
+
+            this.setToken(data.token);
+            this.setUser(data.user);
+
+            return data;
+        } catch (error) {
+            console.error('Google login error:', error);
             throw error;
         }
     }
@@ -268,66 +422,94 @@ class AuthManager {
     }
 
     /**
-     * Update user profile in navbar (with Authelia support)
-     */
-    async updateNavbar() {
-        const user = this.getUser();
-        const config = await this.getAutheliaConfig();
-        const userMenuContainer = document.getElementById('user-menu');
-
-        if (!userMenuContainer) return;
-
-        if (user) {
-            // Show SSO badge if authenticated via Authelia
-            const ssoBadge = config.enabled ? '<span class="text-xs text-emerald-600 ml-1">(SSO)</span>' : '';
-
-            userMenuContainer.innerHTML = `
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-700">Welcome, <strong>${this.escapeHtml(user.name)}</strong>${ssoBadge}</span>
-                    <button onclick="authManager.logout()" 
-                        class="text-sm text-gray-600 hover:text-forest transition-colors">
-                        Logout
-                    </button>
-                </div>
-            `;
-        } else {
-            // If Authelia is enabled, show SSO login button
-            if (config.enabled) {
-                userMenuContainer.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <button onclick="authManager.redirectToAutheliaLogin()"
-                            class="text-sm bg-forest text-white px-4 py-2 rounded-lg hover:bg-forest/90 transition-colors flex items-center">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                            </svg>
-                            Accedi con SSO
-                        </button>
-                    </div>
-                `;
-            } else {
-                userMenuContainer.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <a href="/login.html" class="text-sm text-gray-600 hover:text-forest transition-colors">
-                            Login
-                        </a>
-                        <a href="/register.html" 
-                            class="text-sm bg-forest text-white px-4 py-2 rounded-lg hover:bg-forest/90 transition-colors">
-                            Sign Up
-                        </a>
-                    </div>
-                `;
-            }
-        }
-    }
-
-    /**
      * Escape HTML to prevent XSS
      */
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Update user profile in navbar (with Authelia support)
+     */
+    async updateNavbar() {
+        const user = this.getUser();
+        const config = await this.getAutheliaConfig();
+
+        // Support for dashboard.html style navigation (user-display)
+        const userDisplay = document.getElementById('user-display');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (userDisplay) {
+            if (user) {
+                userDisplay.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-gradient-to-br from-emerald to-mystic rounded-full flex items-center justify-center">
+                        <span class="text-white font-semibold text-sm">${user.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div class="text-sm">
+                        <div class="font-semibold text-forest">${this.escapeHtml(user.name)}</div>
+                         <!-- <div class="text-xs text-gray-500">${this.escapeHtml(user.email)}</div> -->
+                    </div>
+                </div>`;
+                userDisplay.style.display = 'flex';
+                if (logoutBtn) {
+                    logoutBtn.style.display = 'block';
+                    logoutBtn.onclick = () => this.logout();
+                }
+            } else {
+                userDisplay.style.display = 'none';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+            }
+        }
+
+        // Support for main site navigation (user-menu)
+        const userMenuContainer = document.getElementById('user-menu');
+        if (userMenuContainer) {
+            if (user) {
+                // Show SSO badge if authenticated via Authelia
+                const ssoBadge = config.enabled ? '<span class="text-xs text-emerald-600 ml-1">(SSO)</span>' : '';
+
+                userMenuContainer.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-700">Benvenuto, <strong>${this.escapeHtml(user.name)}</strong>${ssoBadge}</span>
+                        <button onclick="authManager.logout()" 
+                            class="text-sm text-gray-600 hover:text-forest transition-colors">
+                            Esci
+                        </button>
+                    </div>
+                `;
+            } else {
+                // If Authelia is enabled, show SSO login button
+                if (config.enabled) {
+                    userMenuContainer.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <button onclick="authManager.redirectToAutheliaLogin()"
+                                class="text-sm bg-forest text-white px-4 py-2 rounded-lg hover:bg-forest/90 transition-colors flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                Accedi con SSO
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    userMenuContainer.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <a href="/login.html" class="text-sm text-gray-600 hover:text-forest transition-colors">
+                                Accedi
+                            </a>
+                            <a href="/register.html" 
+                                class="text-sm bg-forest text-white px-4 py-2 rounded-lg hover:bg-forest/90 transition-colors">
+                                Registrati
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+        }
     }
 
     /**
@@ -357,9 +539,12 @@ class AuthManager {
             if (!redirected) {
                 this.setToken(null);
                 this.setUser(null);
-                window.location.href = '/login.html';
+                // Only redirect if we are not already on the login page
+                if (!window.location.pathname.includes('login.html')) {
+                    window.location.href = '/login.html';
+                }
             }
-            throw new Error('Session expired');
+            throw new Error('Sessione scaduta');
         }
 
         return response;
@@ -373,3 +558,27 @@ window.authManager = new AuthManager();
 document.addEventListener('DOMContentLoaded', () => {
     window.authManager.updateNavbar();
 });
+
+// Google Login Callback (must be global)
+window.handleGoogleLogin = async (response) => {
+    try {
+        await window.authManager.loginWithGoogle(response.credential);
+
+        // Get return URL
+        const returnUrl = window.authManager.getReturnUrl() ||
+            new URLSearchParams(window.location.search).get('return') ||
+            '/dashboard.html';
+
+        window.location.href = returnUrl;
+    } catch (error) {
+        console.error('Google login handle error:', error);
+        // Try to show error on login page
+        const errorDiv = document.getElementById('error-message');
+        if (errorDiv) {
+            errorDiv.textContent = error.message;
+            errorDiv.classList.remove('hidden');
+        } else {
+            alert('Login fallito: ' + error.message);
+        }
+    }
+};

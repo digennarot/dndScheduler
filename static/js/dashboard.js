@@ -36,12 +36,12 @@ class DashboardManager {
             const successRate = Math.round((successfulPolls.length / polls.length) * 100);
             document.getElementById('success-rate').textContent = `${successRate}%`;
         } else {
-            document.getElementById('success-rate').textContent = 'N/A';
+            document.getElementById('success-rate').textContent = 'N/D';
         }
 
         // Calculate Average Response Time
         if (!hasPolls) {
-            document.getElementById('avg-response-time').textContent = 'N/A';
+            document.getElementById('avg-response-time').textContent = 'N/D';
         } else {
             let totalResponseTime = 0;
             let pollsWithResponses = 0;
@@ -70,9 +70,9 @@ class DashboardManager {
 
             if (pollsWithResponses > 0) {
                 const avgDays = (totalResponseTime / pollsWithResponses).toFixed(1);
-                document.getElementById('avg-response-time').textContent = `${avgDays} days`;
+                document.getElementById('avg-response-time').textContent = `${avgDays} giorni`;
             } else {
-                document.getElementById('avg-response-time').textContent = 'Pending';
+                document.getElementById('avg-response-time').textContent = 'In Attesa';
             }
         }
 
@@ -95,9 +95,9 @@ class DashboardManager {
         const pendingEl = document.getElementById('hero-pending-responses');
         const scheduledEl = document.getElementById('hero-sessions-scheduled');
 
-        if (activeEl) activeEl.textContent = `${activeCampaigns} Active Campaign${activeCampaigns !== 1 ? 's' : ''}`;
-        if (pendingEl) pendingEl.textContent = `${pendingResponses} Pending Response${pendingResponses !== 1 ? 's' : ''}`;
-        if (scheduledEl) scheduledEl.textContent = `${sessionsScheduled} Session${sessionsScheduled !== 1 ? 's' : ''} Scheduled`;
+        if (activeEl) activeEl.textContent = `${activeCampaigns} Campagn${activeCampaigns !== 1 ? 'e' : 'a'} Attiv${activeCampaigns !== 1 ? 'e' : 'a'}`;
+        if (pendingEl) pendingEl.textContent = `${pendingResponses} Rispost${pendingResponses !== 1 ? 'e' : 'a'} in Attesa`;
+        if (scheduledEl) scheduledEl.textContent = `${sessionsScheduled} Session${sessionsScheduled !== 1 ? 'i' : 'e'} Pianificat${sessionsScheduled !== 1 ? 'e' : 'a'}`;
     }
 
     renderActivePolls() {
@@ -149,13 +149,13 @@ class DashboardManager {
             return `
                 <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all card-hover border-2 border-transparent hover:border-amber/30">
                     <div class="flex items-start justify-between mb-4">
-                        <h4 class="font-cinzel text-xl font-bold text-forest">${poll.title}</h4>
+                        <h4 class="font-cinzel text-xl font-bold text-forest">${this.app.escapeHtml(poll.title)}</h4>
                         <span class="px-3 py-1 bg-emerald/10 text-emerald rounded-full text-xs font-semibold">
                             Attiva
                         </span>
                     </div>
 
-                    <p class="text-gray-600 mb-4 line-clamp-2">${poll.description || 'Nessuna descrizione'}</p>
+                    <p class="text-gray-600 mb-4 line-clamp-2">${this.app.escapeHtml(poll.description) || 'Nessuna descrizione'}</p>
 
                     <div class="space-y-3 mb-4">
                         <div class="flex items-center justify-between text-sm">

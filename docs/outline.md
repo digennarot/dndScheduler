@@ -108,6 +108,14 @@
 - Email and in-app alerts
 - Status update broadcasting
 
+## Server Configuration
+
+### Infrastructure Setup
+- **Caddy & Authelia**: Reverse proxy and SSO integration
+  - Configuration guide: `docs/CADDY_AUTHELIA_CONFIG.md`
+  - Headers setup and troubleshooting
+  - Integration with backend `authelia_auth.rs`
+
 ## Data Structure & Storage
 
 ### Core Data Models

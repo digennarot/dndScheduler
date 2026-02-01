@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    image: dnd-scheduler:latest
+    container_name: dnd_scheduler_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # Optional: expose internal port for debugging
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static # Mount static for hot updates if desired
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=sqlite:///app/data/dnd_scheduler.db
+      - STATIC_DIR=/app/static
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - DOMAIN=${DOMAIN}
+
+  caddy:
+    image: docker.io/library/caddy:alpine
+    container_name: dnd_scheduler_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

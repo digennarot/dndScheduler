@@ -59,7 +59,8 @@ mod rbac_integration_tests {
         let password = "SecurePass123!@#";
 
         // Crea utente player
-        let (_user_id, _token) = create_test_user_with_session(&pool, email, password, "player").await;
+        let (_user_id, _token) =
+            create_test_user_with_session(&pool, email, password, "player").await;
 
         // Verifica ruolo
         let role: String = sqlx::query_scalar("SELECT role FROM users WHERE email = ?")

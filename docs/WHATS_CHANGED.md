@@ -27,6 +27,7 @@
 - ✅ Refreshes token every 5 minutes
 - ✅ Auto-logout if invalid
 - ✅ New endpoint: `/api/admin/me`
+- ✅ New endpoint: `/api/admin/stats` (Real-time system statistics)
 
 #### 3. **Configuration** (`admin-config.js`)
 - ✅ Environment detection (dev/prod)
@@ -45,12 +46,13 @@
 4. `PRODUCTION_READY.md` - Complete documentation
 5. `DEPLOYMENT_CHECKLIST.md` - Deployment guide
 6. `WHATS_CHANGED.md` - This file
+7. `src/admin_stats.rs` - System statistics handler
 
 ### 🔧 Modified Files
 1. `static/js/admin-manager.js` - Production-ready version
 2. `static/admin.html` - Updated script loading
 3. `src/handlers.rs` - Added `get_current_admin()` endpoint
-4. `src/main.rs` - Added `/api/admin/me` route
+4. `src/main.rs` - Added `/api/admin/me` and `/api/admin/stats` routes
 5. `.env.example` - Added admin config variables
 
 ---

@@ -27,6 +27,11 @@ class SessionManager {
             const pollId = urlParams.get('poll');
             if (pollId) {
                 this.selectSession(pollId);
+                // Check for auto-edit action
+                if (urlParams.get('action') === 'edit') {
+                    // Slight delay to ensure UI update
+                    setTimeout(() => this.editSession(), 100);
+                }
             }
         });
     }
@@ -41,26 +46,41 @@ class SessionManager {
         const container = document.getElementById('sessions-list');
         if (!container || !window.DDSchedulerApp) return;
 
-        // TODO: Filter by organizer once authentication is implemented
-        // const userSessions = window.DDSchedulerApp.polls.filter(poll =>
-        //     poll.organizer === this.currentUser?.id
-        // );
-        const userSessions = window.DDSchedulerApp.polls;
+        // Filter by organizer (Story 4.1)
+        const userSessions = window.DDSchedulerApp.polls.filter(poll => {
+            // Include if I am the organizer
+            if (this.currentUser && poll.organizer_id === this.currentUser.id) return true;
+
+            // Also include if I am a participant (optional, but keep for completeness if manage.html is used for both)
+            // But manage.html says "Gestisci le Tue Campagne" (Manage Your Campaigns), suggesting it's for DMs.
+            // Let's stick to organizer mainly, or check role.
+            // If I am a DM, I want to see polls I created.
+            return false;
+        });
 
         if (userSessions.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12">
                     <div class="text-gray-400 text-6xl mb-4">📅</div>
-                    <h3 class="text-xl font-semibold text-gray-600 mb-2">No Sessions Found</h3>
-                    <p class="text-gray-500 mb-4">You haven't created any scheduling sessions yet.</p>
+                    <h3 class="text-xl font-semibold text-gray-600 mb-2">Nessuna Sessione Trovata</h3>
+                    <p class="text-gray-500 mb-4">Non hai ancora creato nessuna sessione di pianificazione.</p>
                     <button onclick="window.location.href='create-poll.html'" 
                             class="action-button primary">
-                        Create Your First Session
+                        Crea la Tua Prima Sessione
                     </button>
                 </div>
             `;
             return;
         }
+
+        const formatDateIT = (dateString) => {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+        };
 
         container.innerHTML = userSessions.map(session => {
             const responseRate = window.DDSchedulerApp.calculateResponseRate(session);
@@ -74,66 +94,83 @@ class SessionManager {
             const createdAt = session.created_at || session.createdAt || Date.now();
             const participants = session.participants || [];
 
+            // Clean description for display (remove metadata)
+            let cleanDesc = session.description || '';
+            cleanDesc = cleanDesc.replace(/Timezone:.*(\n|$)/g, '')
+                .replace(/Recurring Pattern:.*(\n|$)/g, '')
+                .trim();
+
+            const isFinished = status === 'finalized';
+
             return `
-                <div class="border border-gray-200 rounded-lg p-4 hover:border-amber transition-colors cursor-pointer mystical-glow"
+                <div class="group border border-gray-200 rounded-xl p-5 hover:border-amber transition-all duration-300 hover:shadow-md cursor-pointer bg-white relative overflow-hidden"
                      onclick="sessionManager.selectSession('${session.id}')">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex-1">
-                            <h4 class="font-cinzel text-lg font-semibold text-forest mb-1">${session.title}</h4>
-                            <p class="text-gray-600 text-sm line-clamp-2">${session.description}</p>
+                    
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1 pr-4">
+                            <h4 class="font-cinzel text-xl font-bold text-forest mb-1 group-hover:text-amber-700 transition-colors">${window.DDSchedulerApp.escapeHtml(session.title)}</h4>
+                            <p class="text-gray-600 text-sm line-clamp-2">${window.DDSchedulerApp.escapeHtml(cleanDesc) || 'Nessuna descrizione.'}</p>
                         </div>
-                        <div class="ml-4">
-                            <span class="status-badge status-${status}">${status}</span>
+                        <div class="flex-shrink-0">
+                            <span class="${isFinished ? 'bg-purple-100 text-purple-800' : 'bg-emerald/10 text-emerald-800'} px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide">
+                                ${isFinished ? 'Finalizzata' : 'Attiva'}
+                            </span>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                        <div>
-                            <span class="text-gray-500">Duration:</span>
-                            <span class="font-medium ml-2">${this.formatDuration(duration)}</span>
+                    <div class="bg-gray-50 rounded-lg p-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 uppercase tracking-wider mb-1">Durata</span>
+                            <span class="font-semibold text-gray-700 flex items-center">
+                                <span class="mr-1">⏱️</span> ${this.formatDuration(duration)}
+                            </span>
                         </div>
-                        <div>
-                            <span class="text-gray-500">Players:</span>
-                            <span class="font-medium ml-2">${participants.length}</span>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 uppercase tracking-wider mb-1">Giocatori</span>
+                            <span class="font-semibold text-gray-700 flex items-center">
+                                <span class="mr-1">👥</span> ${participants.length}
+                            </span>
                         </div>
-                        <div>
-                            <span class="text-gray-500">Responses:</span>
-                            <span class="font-medium ml-2">${respondedCount}/${participants.length}</span>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 uppercase tracking-wider mb-1">Risposte</span>
+                            <span class="font-semibold text-gray-700 flex items-center">
+                                <span class="mr-1">📩</span> ${respondedCount}/${participants.length}
+                            </span>
                         </div>
-                        <div>
-                            <span class="text-gray-500">Response Rate:</span>
-                            <span class="font-medium ml-2">${responseRate}%</span>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 uppercase tracking-wider mb-1">Tasso Risp.</span>
+                            <span class="font-semibold ${responseRate >= 100 ? 'text-emerald-600' : responseRate >= 50 ? 'text-amber-600' : 'text-gray-700'} flex items-center">
+                                <span class="mr-1">📊</span> ${responseRate}%
+                            </span>
                         </div>
                     </div>
                     
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-500">
-                            Created ${this.formatDate(createdAt)}
+                    <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div class="text-xs text-gray-400">
+                            Creata il ${formatDateIT(createdAt)}
                         </div>
-                        <div class="flex space-x-2">
-                            ${session.status === 'active' ? `
+                        <div class="flex space-x-3">
+                            ${!isFinished ? `
                                 <button onclick="event.stopPropagation(); sessionManager.sendReminders('${session.id}')" 
-                                        class="text-sm text-amber hover:text-amber-600">
-                                    Send Reminders
+                                        class="text-xs font-medium text-amber hover:text-amber-700 transition-colors flex items-center">
+                                    🔔 <span class="ml-1">Invia Promemoria</span>
                                 </button>
                             ` : ''}
                             <button onclick="event.stopPropagation(); sessionManager.viewSession('${session.id}')" 
-                                    class="text-sm text-forest hover:text-forest-600">
-                                View Details
+                                    class="text-xs font-medium text-forest hover:text-forest-700 transition-colors flex items-center">
+                                👁️ <span class="ml-1">Dettagli</span>
                             </button>
                         </div>
                     </div>
                     
                     ${session.bestTimes && session.bestTimes.length > 0 ? `
-                        <div class="mt-3 pt-3 border-t border-gray-100">
-                            <div class="text-sm text-gray-600 mb-2">Best Times:</div>
-                            <div class="flex flex-wrap gap-2">
-                                ${session.bestTimes.slice(0, 3).map(time => `
-                                    <span class="px-2 py-1 bg-amber/10 text-amber-800 rounded text-xs">
-                                        ${this.formatDateTime(time)}
-                                    </span>
-                                `).join('')}
-                            </div>
+                        <div class="mt-3 text-sm">
+                            <span class="text-xs text-gray-500 mr-2">Top:</span>
+                            ${session.bestTimes.slice(0, 2).map(time => `
+                                <span class="inline-block px-2 py-0.5 bg-amber/10 text-amber-800 rounded text-xs mr-1">
+                                    ${this.formatDateTime(time)}
+                                </span>
+                            `).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -183,8 +220,13 @@ class SessionManager {
         // Count activities (poll creations and responses) per day
         userSessions.forEach(session => {
             // Count poll creation
+            // Fix: Multiply by 1000 for JS Date (backend sends seconds)
             if (session.created_at) {
-                const createdDate = new Date(session.created_at);
+                const timestamp = typeof session.created_at === 'number' && session.created_at < 10000000000
+                    ? session.created_at * 1000
+                    : session.created_at;
+
+                const createdDate = new Date(timestamp);
                 const daysDiff = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
                 if (daysDiff >= 0 && daysDiff < 7) {
                     activity[6 - daysDiff]++;
@@ -194,7 +236,13 @@ class SessionManager {
             // Count responses
             Object.values(session.responses || {}).forEach(response => {
                 if (response.responded && response.timestamp) {
-                    const responseDate = new Date(response.timestamp);
+                    // Responses might be in ms or s, check heuristic
+                    let timestamp = response.timestamp;
+                    if (typeof timestamp === 'number' && timestamp < 10000000000) {
+                        timestamp *= 1000;
+                    }
+
+                    const responseDate = new Date(timestamp);
                     const daysDiff = Math.floor((today - responseDate) / (1000 * 60 * 60 * 24));
                     if (daysDiff >= 0 && daysDiff < 7) {
                         activity[6 - daysDiff]++;
@@ -236,7 +284,7 @@ class SessionManager {
             tooltip: {
                 trigger: 'axis',
                 formatter: function (params) {
-                    return `${params[0].name}: ${params[0].value} activities`;
+                    return `${params[0].name}: ${params[0].value} attività`;
                 }
             }
         };
@@ -256,11 +304,16 @@ class SessionManager {
 
         userSessions.forEach(session => {
             // Poll creation activity
+            // Fix: Multiply by 1000 for JS Date
             if (session.created_at) {
+                const timestamp = typeof session.created_at === 'number' && session.created_at < 10000000000
+                    ? session.created_at * 1000
+                    : session.created_at;
+
                 activities.push({
                     type: 'created',
-                    message: `Created session: ${session.title}`,
-                    timestamp: new Date(session.created_at),
+                    message: `Campagna creata: ${session.title}`,
+                    timestamp: new Date(timestamp),
                     icon: '🎲'
                 });
             }
@@ -268,11 +321,16 @@ class SessionManager {
             // Response activities
             Object.entries(session.responses || {}).forEach(([userId, response]) => {
                 if (response.responded && response.timestamp) {
+                    let timestamp = response.timestamp;
+                    if (typeof timestamp === 'number' && timestamp < 10000000000) {
+                        timestamp *= 1000;
+                    }
+
                     const user = window.DDSchedulerApp.getUserById(userId);
                     activities.push({
                         type: 'response',
-                        message: `${user?.name || 'A player'} responded to ${session.title}`,
-                        timestamp: new Date(response.timestamp),
+                        message: `${user?.name || 'Un giocatore'} ha risposto a ${session.title}`,
+                        timestamp: new Date(timestamp),
                         icon: '✓'
                     });
                 }
@@ -280,10 +338,16 @@ class SessionManager {
 
             // Finalization activity
             if (session.status === 'finalized' && session.finalizedAt) {
+                let timestamp = session.finalizedAt;
+                // parsed dates string or iso string usually don't need scaling but let's be safe if number
+                if (typeof timestamp === 'number' && timestamp < 10000000000) {
+                    timestamp *= 1000;
+                }
+
                 activities.push({
                     type: 'finalized',
-                    message: `${session.title} session finalized`,
-                    timestamp: new Date(session.finalizedAt),
+                    message: `Campagna ${session.title} finalizzata`,
+                    timestamp: new Date(timestamp),
                     icon: '📅'
                 });
             }
@@ -299,7 +363,7 @@ class SessionManager {
             container.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
                     <div class="text-4xl mb-2">📋</div>
-                    <div class="text-sm">No recent activity</div>
+                    <div class="text-sm">Nessuna attività recente</div>
                 </div>
             `;
             return;
@@ -326,17 +390,36 @@ class SessionManager {
         const hours = Math.floor(minutes / 60);
         const days = Math.floor(hours / 24);
 
-        if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-        if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-        if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-        return 'Just now';
+        if (days > 0) return `${days} giorn${days === 1 ? 'o' : 'i'} fa`;
+        if (hours > 0) return `${hours} or${hours === 1 ? 'a' : 'e'} fa`;
+        if (minutes > 0) return `${minutes} minut${minutes === 1 ? 'o' : 'i'} fa`;
+        return 'Proprio ora';
     }
 
-    selectSession(sessionId) {
+    async selectSession(sessionId) {
         if (!window.DDSchedulerApp) return;
 
+        // Try getting from local cache
         this.selectedSession = window.DDSchedulerApp.getPollById(sessionId);
-        if (!this.selectedSession) return;
+
+        // Story 1.5: If not found (e.g. private poll or direct link), try fetching individually
+        if (!this.selectedSession) {
+            console.log('Session not found locally, attempting to fetch...', sessionId);
+            this.selectedSession = await window.DDSchedulerApp.fetchSinglePoll(sessionId);
+
+            // If found, refresh the list to show this new poll
+            if (this.selectedSession) {
+                this.loadSessionsList();
+                this.loadQuickStats(); // Update stats too
+            }
+        }
+
+        if (!this.selectedSession) {
+            console.error('Session not found:', sessionId);
+            // Optionally show error to user
+            this.showNotification('Errore', 'Impossibile trovare la sessione specificata.', 'error');
+            return;
+        }
 
         // Show session detail section
         document.getElementById('session-detail').style.display = 'block';
@@ -362,17 +445,24 @@ class SessionManager {
     updateSessionDetails() {
         if (!this.selectedSession) return;
 
-        document.getElementById('detail-title').textContent = this.selectedSession.title;
-        document.getElementById('detail-description').textContent = this.selectedSession.description;
+        document.getElementById('detail-title').textContent = this.selectedSession.title; // textContent is safe, but consistency doesn't hurt
+
+        // Clean description
+        let cleanDesc = this.selectedSession.description || '';
+        cleanDesc = cleanDesc.replace(/Timezone:.*(\n|$)/g, '')
+            .replace(/Recurring Pattern:.*(\n|$)/g, '')
+            .trim();
+
+        document.getElementById('detail-description').textContent = cleanDesc || 'Nessuna descrizione disponibile.'; // textContent is safe
 
         // Update finalize button
         const finalizeBtn = document.getElementById('finalize-btn');
         if (this.selectedSession.status === 'finalized') {
-            finalizeBtn.textContent = 'Session Finalized';
+            finalizeBtn.textContent = 'Campagna Finalizzata';
             finalizeBtn.disabled = true;
             finalizeBtn.classList.add('opacity-50', 'cursor-not-allowed');
         } else {
-            finalizeBtn.textContent = 'Finalize Time';
+            finalizeBtn.textContent = 'Finalizza Disponibilità';
             finalizeBtn.disabled = false;
             finalizeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
@@ -382,94 +472,196 @@ class SessionManager {
         const container = document.getElementById('overlap-heatmap');
         if (!container || !this.selectedSession) return;
 
-        // Generate date range and time slots
-        const dates = this.generateDateRange(this.selectedSession.dateRange.start, this.selectedSession.dateRange.end);
+        // CRITICAL FIX: Remove the CSS Grid class that enforces 7 columns
+        container.className = 'mt-4 overflow-hidden rounded-xl border border-gray-200 shadow-sm';
+
+        // Parse dates
+        let dates = [];
+        try {
+            const parsed = JSON.parse(this.selectedSession.dates);
+            if (Array.isArray(parsed)) {
+                dates = parsed;
+            } else {
+                dates = this.generateDateRange(this.selectedSession.dateRange.start, this.selectedSession.dateRange.end);
+            }
+        } catch (e) {
+            dates = this.selectedSession.dateRange ?
+                this.generateDateRange(this.selectedSession.dateRange.start, this.selectedSession.dateRange.end) : [];
+        }
+
         const timeSlots = this.selectedSession.timeSlots || ['18:00', '19:00', '20:00', '21:00'];
 
-        // Clear existing heatmap
-        container.innerHTML = '';
+        // Helper for IT dates
+        const formatDateIT = (dateString) => {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+        };
 
-        // Add header row
-        container.appendChild(this.createHeatmapCell('Time', 'header'));
-        dates.forEach(date => {
-            container.appendChild(this.createHeatmapCell(this.formatDate(date), 'header'));
-        });
+        // Build Table Structure
+        let tableHtml = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-4 font-bold text-forest bg-gray-50/50 sticky left-0 z-10 w-24">
+                                Orario
+                            </th>
+                            ${dates.map(date => `
+                                <th scope="col" class="px-4 py-3 text-center min-w-[100px]">
+                                    ${formatDateIT(date)}
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-100">
+        `;
 
-        // Add time rows with overlap data
+        // Add rows
         timeSlots.forEach(time => {
-            // Time label
-            container.appendChild(this.createHeatmapCell(this.formatTime(time), 'time-label'));
+            tableHtml += `
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-forest bg-white sticky left-0 z-10 border-r border-gray-100 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                        ${this.formatTime(time)}
+                    </td>
+            `;
 
-            // Date cells with overlap counts
             dates.forEach(date => {
                 const overlapCount = this.calculateOverlap(date, time);
-                const cell = this.createHeatmapCell(overlapCount > 0 ? `${overlapCount}` : '', 'data');
+                const totalParticipants = this.selectedSession.participants.length || 1;
+                const ratio = overlapCount / totalParticipants;
+
+                // Determine styling based on availability ratio
+                let cellContent = '';
 
                 if (overlapCount > 0) {
-                    // Add overlap indicator
-                    const indicator = document.createElement('div');
-                    indicator.className = 'overlap-indicator';
-                    indicator.textContent = overlapCount;
-                    cell.appendChild(indicator);
+                    let bgClass = 'bg-gray-100 text-gray-800';
+                    if (ratio === 1) bgClass = 'bg-emerald-500 text-white shadow-md';
+                    else if (ratio >= 0.75) bgClass = 'bg-emerald-400 text-white';
+                    else if (ratio >= 0.5) bgClass = 'bg-amber-400 text-white';
 
-                    // Color code based on overlap
-                    const intensity = Math.min(overlapCount / this.selectedSession.participants.length, 1);
-                    cell.style.backgroundColor = `rgba(74, 124, 89, ${intensity * 0.8})`;
-                    cell.style.color = intensity > 0.5 ? 'white' : '#1a3d2e';
+                    cellContent = `
+                        <div class="w-8 h-8 mx-auto flex items-center justify-center rounded-lg font-bold ${bgClass} transition-transform hover:scale-110">
+                            ${overlapCount}
+                        </div>
+                    `;
+                } else {
+                    cellContent = `<div class="w-2 h-2 mx-auto rounded-full bg-gray-200"></div>`;
                 }
 
-                container.appendChild(cell);
+                tableHtml += `
+                    <td class="px-4 py-3 text-center">
+                        ${cellContent}
+                    </td>
+                `;
             });
+
+            tableHtml += `</tr>`;
         });
+
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="bg-gray-50 px-4 py-2 border-t border-gray-100 text-xs text-center text-gray-500 flex justify-center space-x-4">
+                <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> Tutti Disponibili</span>
+                <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-amber-400 mr-1"></span> Buona Disponibilità</span>
+                <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-gray-200 mr-1"></span> Nessuno</span>
+            </div>
+        `;
+
+        container.innerHTML = tableHtml;
     }
 
+    // Deprecated helpers removed from loop but kept if needed for other things
+    // createHeatmapCell removed as we generate string HTML directly now
     createHeatmapCell(content, type) {
-        const cell = document.createElement('div');
-        cell.className = `heatmap-cell ${type}`;
-        cell.textContent = content;
-        return cell;
+        return null;
     }
 
     calculateOverlap(date, time) {
-        // Simulate overlap calculation based on responses
-        if (!this.selectedSession.responses) return 0;
+        if (!this.selectedSession || !this.selectedSession.responses) return 0;
 
         let overlapCount = 0;
         Object.values(this.selectedSession.responses).forEach(response => {
             if (response.responded && response.availability) {
                 const cellId = `${date}_${time}`;
+                // Check exact match 'available' or localized version if relevant
+                // The backend stores 'available'
                 if (response.availability[cellId] === 'available') {
                     overlapCount++;
                 }
             }
         });
 
-        return Math.floor(Math.random() * this.selectedSession.participants.length); // Mock data
+        return overlapCount;
     }
 
     loadRecommendedTimes() {
         const container = document.getElementById('recommended-times');
         if (!container || !this.selectedSession) return;
 
-        // Generate recommended times based on overlap analysis
-        const recommendedTimes = [
-            {
-                date: '2025-01-18',
-                time: '19:00',
-                overlap: 4,
-                confidence: 'High'
-            },
-            {
-                date: '2025-01-25',
-                time: '18:30',
-                overlap: 3,
-                confidence: 'Medium'
+        // Get all dates and times
+        let dates = [];
+        try {
+            const parsed = JSON.parse(this.selectedSession.dates);
+            if (Array.isArray(parsed)) {
+                // Determine if it's a range or list based on poll mode (heuristics: if 2 dates and high duration, likely range, but let's see)
+                // Actually, backend now simply stores the list of dates for specific mode, 
+                // or the list of all dates in range for range mode.
+                // So reliable way is to trust the array content as the dates to check.
+                // However, app.js logic suggests dateRange might be set.
+                // Let's rely on the array directly.
+                dates = parsed;
+            } else if (parsed && parsed.start && parsed.end) {
+                dates = this.generateDateRange(parsed.start, parsed.end);
             }
-        ];
+        } catch (e) { console.error("Error parsing dates", e); }
+
+        // Use default if empty (fallback)
+        if (dates.length === 0 && this.selectedSession.dateRange) {
+            dates = this.generateDateRange(this.selectedSession.dateRange.start, this.selectedSession.dateRange.end);
+        }
+
+        const timeSlots = this.selectedSession.timeSlots || ['18:00', '19:00', '20:00', '21:00'];
+
+        // Calculate overlap for all combinations
+        const allCombinations = [];
+        dates.forEach(date => {
+            timeSlots.forEach(time => {
+                const overlap = this.calculateOverlap(displayDate(date), time); // displayDate handles format if needed? No, calculateOverlap expects ISO YYYY-MM-DD
+                // Actually calculateOverlap expects key matching availability map keys.
+                // Availability map keys are "YYYY-MM-DD_HH:MM".
+                const overlapCount = this.calculateOverlap(date, time);
+                if (overlapCount > 0) {
+                    allCombinations.push({
+                        date,
+                        time,
+                        overlap: overlapCount
+                    });
+                }
+            });
+        });
+
+        // Sort by overlap desc
+        allCombinations.sort((a, b) => b.overlap - a.overlap);
+
+        // Take top 5
+        const recommendedTimes = allCombinations.slice(0, 5);
+
+        if (recommendedTimes.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-6 text-gray-500 text-sm">
+                    Nessuna disponibilità comune trovata ancora.
+                </div>
+            `;
+            return;
+        }
+
+        const totalParticipants = this.selectedSession.participants.length || 1;
 
         container.innerHTML = recommendedTimes.map(rec => {
-            // Calculate percentage (capped at 100%)
-            const percentage = Math.min(Math.round((rec.overlap / this.selectedSession.participants.length) * 100), 100);
+            // Calculate percentage
+            const percentage = Math.round((rec.overlap / totalParticipants) * 100);
 
             // Determine confidence color and description
             let confidenceColor = 'bg-emerald/10 text-emerald-800';
@@ -477,13 +669,13 @@ class SessionManager {
 
             if (percentage >= 75) {
                 confidenceColor = 'bg-emerald/10 text-emerald-800';
-                confidenceText = `${percentage}% disponibili`;
+                confidenceText = `Ottima (${percentage}%)`;
             } else if (percentage >= 50) {
                 confidenceColor = 'bg-amber/10 text-amber-800';
-                confidenceText = `${percentage}% disponibili`;
+                confidenceText = `Buona (${percentage}%)`;
             } else {
                 confidenceColor = 'bg-deep-red/10 text-deep-red';
-                confidenceText = `Solo ${percentage}%`;
+                confidenceText = `Bassa (${percentage}%)`;
             }
 
             return `
@@ -495,14 +687,11 @@ class SessionManager {
                         </span>
                     </div>
                     <div class="text-sm text-gray-600 mb-2">
-                        ${this.formatTime(rec.time)} • ${rec.overlap}/${this.selectedSession.participants.length} giocatori disponibili
+                        ${this.formatTime(rec.time)} • ${rec.overlap}/${totalParticipants} giocatori disponibili
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2">
                         <div class="bg-emerald h-2 rounded-full transition-all" 
                              style="width: ${percentage}%"></div>
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1 text-right">
-                        ${percentage}%
                     </div>
                 </div>
             `;
@@ -540,21 +729,21 @@ class SessionManager {
                                 ${user ? user.avatar : '?'}
                             </div>
                             <div>
-                                <div class="font-semibold text-forest">${user ? user.name : 'Unknown Player'}</div>
+                                <div class="font-semibold text-forest">${user ? window.DDSchedulerApp.escapeHtml(user.name) : 'Giocatore Sconosciuto'}</div>
                                 <div class="text-sm text-gray-500">
-                                    ${hasResponded ? 'Responded' : 'Pending Response'}
+                                    ${hasResponded ? 'Ha risposto' : 'In attesa'}
                                 </div>
                             </div>
                         </div>
                         <div class="text-right">
                             ${hasResponded ? `
                                 <span class="px-2 py-1 bg-emerald/10 text-emerald-800 rounded text-xs">
-                                    ${availabilityPercent}% Available
+                                    ${availabilityPercent}% Disponibile
                                 </span>
                             ` : `
                                 <button onclick="sessionManager.sendIndividualReminder('${participantId}')" 
                                         class="text-sm text-amber hover:text-amber-600">
-                                    Send Reminder
+                                    Invia Promemoria
                                 </button>
                             `}
                         </div>
@@ -562,7 +751,7 @@ class SessionManager {
                     
                     ${hasResponded && response.availability ? `
                         <div class="text-sm text-gray-600">
-                            Availability: ${availabilityPercent}% of time slots
+                            Disponibilità: ${availabilityPercent}% delle fasce orarie
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
                             <div class="bg-emerald h-2 rounded-full transition-all" 
@@ -634,8 +823,8 @@ class SessionManager {
         if (timeOptions.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
-                    <p class="mb-2">⚠️ No availability data yet</p>
-                    <p class="text-sm">Wait for participants to submit their availability before finalizing.</p>
+                    <p class="mb-2">⚠️ Nessun dato sulla disponibilità</p>
+                    <p class="text-sm">Attendi che i partecipanti inviino la loro disponibilità prima di finalizzare.</p>
                 </div>
             `;
             return;
@@ -648,12 +837,12 @@ class SessionManager {
                     <input type="radio" name="finalTime" value="${option.date}_${option.time}" 
                            class="mr-3" ${index === 0 ? 'checked' : ''}>
                     <div class="flex-1">
-                        <div class="font-medium text-forest">${this.formatDate(option.date)} at ${this.formatTime(option.time)}</div>
-                        <div class="text-sm text-gray-600">${option.count} player${option.count !== 1 ? 's' : ''} available</div>
+                        <div class="font-medium text-forest">${this.formatDate(option.date)} alle ${this.formatTime(option.time)}</div>
+                        <div class="text-sm text-gray-600">${option.count} giocatori disponibili</div>
                     </div>
                     <div class="text-right">
                         <span class="px-2 py-1 ${matchPercent >= 75 ? 'bg-emerald/10 text-emerald-800' : 'bg-amber/10 text-amber-800'} rounded text-xs">
-                            ${matchPercent}% match
+                            Compatibilità ${matchPercent}%
                         </span>
                     </div>
                 </label>
@@ -676,34 +865,58 @@ class SessionManager {
         });
     }
 
-    confirmFinalize() {
-        const selectedTime = document.querySelector('input[name="finalTime"]:checked');
-        if (!selectedTime) {
-            alert('Please select a time to finalize the session.');
+    async confirmFinalize() {
+        const selectedTimeInput = document.querySelector('input[name="finalTime"]:checked');
+        if (!selectedTimeInput) {
+            alert('Seleziona un orario per finalizzare la sessione.');
             return;
         }
 
         const sessionNotes = document.getElementById('session-notes').value;
+        const finalizedTime = selectedTimeInput.value;
 
-        // Update session status
-        if (this.selectedSession) {
-            this.selectedSession.status = 'finalized';
-            this.selectedSession.finalizedTime = selectedTime.value;
-            this.selectedSession.notes = sessionNotes;
-            this.selectedSession.finalizedAt = new Date().toISOString();
+        try {
+            const response = await fetch(`/api/polls/${this.selectedSession.id}/finalize`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.authManager.getToken()}`
+                },
+                body: JSON.stringify({
+                    finalized_time: finalizedTime,
+                    notes: sessionNotes
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to finalize session');
+            }
+
+            const result = await response.json();
+
+            // Close modal immediately
+            this.closeFinalizeModal();
+
+            // Show success message
+            this.showSuccessMessage('Sessione Finalizzata', 'I giocatori sono stati notificati dell\'orario finale.');
+
+            // Refresh the entire session view from server to ensure data consistency
+            // This fixes the adversarial finding about "patching local object"
+            setTimeout(() => {
+                this.loadSessionsList(); // Refresh list to update status badges
+                this.selectSession(this.selectedSession.id); // Re-fetch details from server
+
+                // Optionally reload dashboard stats if we can access them
+                if (window.dashboardManager) {
+                    window.dashboardManager.updateStatistics();
+                }
+            }, 500);
+
+        } catch (error) {
+            console.error('Error finalizing session:', error);
+            this.showNotification('Errore', 'Impossibile finalizzare la sessione: ' + error.message, 'error');
         }
-
-        // Close modal
-        this.closeFinalizeModal();
-
-        // Show success message
-        this.showSuccessMessage('Session Finalized', 'Players have been notified of the final session time.');
-
-        // Refresh the view
-        setTimeout(() => {
-            this.loadSessionsList();
-            this.updateSessionDetails();
-        }, 1000);
     }
 
     sendReminders(sessionId = null) {
@@ -718,12 +931,12 @@ class SessionManager {
             return !response || !response.responded;
         }).length;
 
-        this.showSuccessMessage('Reminders Sent', `Sent reminders to ${pendingCount} pending players.`);
+        this.showSuccessMessage('Promemoria Inviati', `Inviati promemoria a ${pendingCount} giocatori in attesa.`);
     }
 
     sendIndividualReminder(participantId) {
         const user = window.DDSchedulerApp.getUserById(participantId);
-        this.showSuccessMessage('Reminder Sent', `Sent reminder to ${user ? user.name : 'player'}.`);
+        this.showSuccessMessage('Promemoria Inviato', `Inviato promemoria a ${user ? user.name : 'giocatore'}.`);
     }
 
     exportToCalendar(sessionId = null) {
@@ -944,60 +1157,60 @@ END:VCALENDAR`;
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-                    <h3 class="font-cinzel text-2xl font-bold text-forest">Edit Session</h3>
+                    <h3 class="font-cinzel text-2xl font-bold text-forest">Modifica Campagna</h3>
                     <button onclick="sessionManager.closeEditModal()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
                 </div>
 
                 <form id="edit-session-form" class="p-6 space-y-6">
                     <!-- Basic Information -->
                     <div class="space-y-4">
-                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Basic Information</h4>
+                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Informazioni Base</h4>
                         
                         <div>
                             <label for="edit-title" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Campaign Name *
+                                Nome Campagna *
                             </label>
                             <input type="text" id="edit-title" required
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                                placeholder="e.g., Tomb of Annihilation">
+                                placeholder="es. La Tomba dell'Annientamento">
                         </div>
 
                         <div>
                             <label for="edit-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Description
+                                Descrizione
                             </label>
                             <textarea id="edit-description" rows="4"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                                placeholder="Brief description of your campaign..."></textarea>
+                                placeholder="Breve descrizione della tua avventura..."></textarea>
                         </div>
 
                         <div>
                             <label for="edit-location" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Location
+                                Luogo
                             </label>
                             <input type="text" id="edit-location"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                                placeholder="e.g., Online, Discord, Roll20">
+                                placeholder="es. Online, Discord, Roll20">
                         </div>
                     </div>
 
                     <!-- Dates -->
                     <div class="space-y-4">
-                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Available Dates</h4>
+                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Date Disponibili</h4>
                         <div>
                             <label for="edit-dates" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Select Dates *
+                                Seleziona Date *
                             </label>
                             <input type="text" id="edit-dates" required
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                                placeholder="Select dates...">
-                            <p class="text-sm text-gray-500 mt-1">Click to select multiple dates</p>
+                                placeholder="Seleziona date...">
+                            <p class="text-sm text-gray-500 mt-1">Clicca per selezionare più date</p>
                         </div>
                     </div>
 
                     <!-- Time Preferences -->
                     <div class="space-y-4">
-                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Time Preferences</h4>
+                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Preferenze Orarie</h4>
                         <div id="edit-time-preferences-container">
                             <!-- Will be populated dynamically -->
                         </div>
@@ -1005,15 +1218,15 @@ END:VCALENDAR`;
 
                     <!-- Participants -->
                     <div class="space-y-4">
-                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Participants</h4>
+                        <h4 class="font-semibold text-lg text-forest border-b pb-2">Partecipanti</h4>
                         <div>
                             <label for="edit-participants" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Player Emails
+                                Email Giocatori
                             </label>
                             <textarea id="edit-participants" rows="3"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                                placeholder="Enter email addresses separated by commas or line breaks"></textarea>
-                            <p class="text-sm text-gray-500 mt-1">Current participants will be preserved</p>
+                                placeholder="Inserisci indirizzi email separati da virgola o a capo"></textarea>
+                            <p class="text-sm text-gray-500 mt-1">I partecipanti attuali saranno mantenuti</p>
                         </div>
                     </div>
 
@@ -1021,11 +1234,11 @@ END:VCALENDAR`;
                     <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
                         <button type="button" onclick="sessionManager.closeEditModal()"
                             class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                            Cancel
+                            Annulla
                         </button>
                         <button type="submit"
                             class="px-6 py-3 bg-forest text-white rounded-lg font-semibold hover:bg-forest/90 transition-colors">
-                            Save Changes
+                            Salva Modifiche
                         </button>
                     </div>
                 </form>
@@ -1067,6 +1280,7 @@ END:VCALENDAR`;
         if (dateInput && typeof flatpickr !== 'undefined') {
             this.editDatePicker = flatpickr(dateInput, {
                 mode: 'multiple',
+                locale: 'it', // Force Italian locale
                 dateFormat: 'Y-m-d',
                 minDate: 'today',
                 defaultDate: dates,
@@ -1208,7 +1422,7 @@ END:VCALENDAR`;
         const firstTimes = this.editTimePreferences[firstDate] || [];
 
         if (firstTimes.length === 0) {
-            alert('Please select at least one time slot for the first date');
+            alert('Seleziona almeno una fascia oraria per la prima data');
             return;
         }
 
@@ -1217,7 +1431,7 @@ END:VCALENDAR`;
         });
 
         this.renderEditTimePreferences();
-        this.showSuccessMessage('Times Applied', `Applied ${firstTimes.length} time slot(s) to all ${this.editSelectedDates.length} dates`);
+        this.showSuccessMessage('Orari Applicati', `Applicati ${firstTimes.length} orari a tutte le date.`);
     }
 
     async submitEditForm() {
@@ -1256,6 +1470,7 @@ END:VCALENDAR`;
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.authManager.getToken()}`
                 },
                 body: JSON.stringify(payload)
             });
@@ -1281,7 +1496,7 @@ END:VCALENDAR`;
 
         } catch (error) {
             console.error('Error updating poll:', error);
-            alert('Failed to update session: ' + error.message);
+            alert('Impossibile aggionare la sessione: ' + error.message);
         }
     }
 
@@ -1341,7 +1556,7 @@ END:VCALENDAR`;
             ? new Date(dateString * 1000) // Unix timestamp in seconds
             : new Date(dateString);
 
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('it-IT', {
             weekday: 'short',
             month: 'short',
             day: 'numeric'
@@ -1350,14 +1565,13 @@ END:VCALENDAR`;
 
     formatTime(timeString) {
         const [hours, minutes] = timeString.split(':');
-        const hour12 = hours > 12 ? hours - 12 : hours;
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        return `${hour12}:${minutes || '00'} ${ampm}`;
+        // 24h format
+        return `${hours}:${minutes || '00'}`;
     }
 
     formatDateTime(dateTimeString) {
         const [date, time] = dateTimeString.split('_');
-        return `${this.formatDate(date)} at ${this.formatTime(time)}`;
+        return `${this.formatDate(date)} alle ${this.formatTime(time)}`;
     }
 
     generateDateRange(startDate, endDate) {

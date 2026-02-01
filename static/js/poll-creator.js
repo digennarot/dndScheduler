@@ -12,7 +12,33 @@ class PollCreator {
         this.generateTimeSlots();
         this.initializeDatePicker();
         this.setupFormValidation();
+        this.setupRecurrenceHandlers();
         this.updateStepIndicators();
+    }
+
+    setupRecurrenceHandlers() {
+        const patternSelect = document.getElementById('recurring-pattern');
+        const optionsContainer = document.getElementById('recurrence-options');
+        const weeklyOptions = document.getElementById('weekly-options');
+
+        if (patternSelect && optionsContainer && weeklyOptions) {
+            patternSelect.addEventListener('change', (e) => {
+                const value = e.target.value;
+
+                if (value === 'weekly' || value === 'biweekly') {
+                    optionsContainer.classList.remove('hidden');
+                    weeklyOptions.classList.remove('hidden');
+                } else if (value === 'monthly') {
+                    // For monthly, we might add options later, but showing container ensures space
+                    // For now, keep it simple as implementation plan suggested
+                    optionsContainer.classList.add('hidden');
+                    weeklyOptions.classList.add('hidden');
+                } else {
+                    optionsContainer.classList.add('hidden');
+                    weeklyOptions.classList.add('hidden');
+                }
+            });
+        }
     }
 
     generateTimeSlots() {
@@ -37,9 +63,7 @@ class PollCreator {
 
     formatTime(time) {
         const [hours, minutes] = time.split(':');
-        const hour12 = hours > 12 ? hours - 12 : hours;
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        return `${hour12}:00 ${ampm}`;
+        return `${hours}:00`;
     }
 
     initializeDatePicker() {
@@ -211,12 +235,12 @@ class PollCreator {
         const duration = document.getElementById('session-duration').value;
 
         if (!title) {
-            this.showValidationError('Campaign title is required');
+            this.showValidationError('Il titolo della campagna è obbligatorio');
             return false;
         }
 
         if (!duration) {
-            this.showValidationError('Session duration is required');
+            this.showValidationError('La durata della sessione è obbligatoria');
             return false;
         }
 
@@ -225,7 +249,7 @@ class PollCreator {
 
     validateStep2() {
         if (!this.formData.dateRange) {
-            this.showValidationError('Please select dates');
+            this.showValidationError('Seleziona le date');
             return false;
         }
 
@@ -234,7 +258,7 @@ class PollCreator {
         const hasRange = this.formData.dateRange.start && this.formData.dateRange.end;
 
         if (!hasMultipleDates && !hasRange) {
-            this.showValidationError('Please select at least one date');
+            this.showValidationError('Seleziona almeno una data');
             return false;
         }
 
@@ -243,13 +267,13 @@ class PollCreator {
 
     validateStep3() {
         if (this.selectedTimeSlots.length === 0) {
-            this.showValidationError('Please select at least one preferred time slot');
+            this.showValidationError('Seleziona almeno una fascia oraria preferita');
             return false;
         }
 
         const timezone = document.getElementById('timezone').value;
         if (!timezone) {
-            this.showValidationError('Please select your timezone');
+            this.showValidationError('Seleziona il tuo fuso orario');
             return false;
         }
 
@@ -259,7 +283,7 @@ class PollCreator {
     validateStep4() {
         const emails = document.getElementById('player-emails').value.trim();
         if (!emails) {
-            this.showValidationError('Please enter at least one player email address');
+            this.showValidationError('Inserisci almeno un indirizzo email');
             return false;
         }
 
@@ -269,13 +293,13 @@ class PollCreator {
 
         for (const email of emailList) {
             if (!emailRegex.test(email)) {
-                this.showValidationError(`Invalid email address: ${email}`);
+                this.showValidationError(`Indirizzo email non valido: ${email}`);
                 return false;
             }
         }
 
         if (emailList.length > 10) {
-            this.showValidationError('Maximum 10 players allowed per poll');
+            this.showValidationError('Massimo 10 giocatori consentiti per sondaggio');
             return false;
         }
 
@@ -297,6 +321,10 @@ class PollCreator {
                 this.formData.timeSlots = [...this.selectedTimeSlots];
                 this.formData.timezone = document.getElementById('timezone').value;
                 this.formData.recurringPattern = document.getElementById('recurring-pattern').value;
+                // Capture selected days for weekly/biweekly
+                const selectedDays = Array.from(document.querySelectorAll('input[name="recurrenceDays"]:checked'))
+                    .map(cb => cb.value);
+                this.formData.recurrenceDays = selectedDays;
                 break;
             case 4:
                 const emails = document.getElementById('player-emails').value.trim();
@@ -361,7 +389,7 @@ class PollCreator {
             nextBtn.style.display = 'none';
         } else {
             nextBtn.style.display = 'block';
-            nextBtn.textContent = this.currentStep === this.totalSteps - 1 ? 'Review →' : 'Next →';
+            nextBtn.textContent = this.currentStep === this.totalSteps - 1 ? 'Riepilogo →' : 'Avanti →';
         }
     }
 
@@ -370,69 +398,144 @@ class PollCreator {
         if (!container) return;
 
         const formatTimeSlots = (slots) => {
-            return slots.map(slot => this.formatTime(slot)).join(', ');
+            if (!slots || slots.length === 0) return 'Nessun orario selezionato';
+            const sortedSlots = [...slots].sort();
+            return sortedSlots.map(slot => `<span class="inline-block bg-dnd-darker border border-dnd-red/30 rounded px-2 py-1 text-xs text-dnd-red-light mb-1 mr-1">${this.formatTime(slot)}</span>`).join('');
         };
 
         const formatDuration = (minutes) => {
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
-            return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
+            return mins > 0 ? `${hours}h ${mins}m` : `${hours} Ore`;
         };
 
-        container.innerHTML = `
-            <div class="bg-gray-50 p-6 rounded-lg space-y-4">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-semibold text-forest mb-2">Campaign Details</h4>
-                        <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Title:</span> ${this.formData.title}</div>
-                            <div><span class="font-medium">Type:</span> ${this.formData.type || 'Not specified'}</div>
-                            <div><span class="font-medium">Duration:</span> ${formatDuration(this.formData.duration)}</div>
-                            ${this.formData.description ? `<div><span class="font-medium">Description:</span> ${this.formData.description}</div>` : ''}
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-semibold text-forest mb-2">Schedule Preferences</h4>
-                        <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Dates:</span> ${this.formData.dateRange.mode === 'multiple'
-                ? this.formData.dateRange.dates.join(', ')
-                : `${this.formData.dateRange.start} to ${this.formData.dateRange.end}`
-            }</div>
-                            <div><span class="font-medium">Timezone:</span> ${this.formData.timezone}</div>
-                            <div><span class="font-medium">Pattern:</span> ${this.formData.recurringPattern || 'Flexible'}</div>
-                            <div><span class="font-medium">Preferred Times:</span> ${formatTimeSlots(this.formData.timeSlots)}</div>
-                        </div>
-                    </div>
+        const typeLabels = {
+            'one-shot': 'Avventura One-Shot',
+            'short-campaign': 'Campagna Breve',
+            'long-campaign': 'Campagna Lunga',
+            'ongoing': 'Campagna Continuativa'
+        };
+
+        const patternLabels = {
+            'flexible': 'Flessibile',
+            'weekly': 'Settimanale',
+            'biweekly': 'Bi-settimanale',
+            'monthly': 'Mensile'
+        };
+
+        const privacyLabels = {
+            'private': 'Privata (Su Invito)',
+            'public': 'Pubblica (Link Condivisibile)'
+        };
+
+        // Helper for sections
+        const createSection = (title, icon, content) => `
+            <div class="bg-dnd-dark border border-border-color rounded-lg p-5 shadow-lg relative overflow-hidden group hover:border-dnd-red/50 transition-colors duration-300">
+                <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    ${icon}
                 </div>
-                
-                <div>
-                    <h4 class="font-semibold text-forest mb-2">Invited Players (${this.formData.emails.length})</h4>
-                    <div class="flex flex-wrap gap-2">
-                        ${this.formData.emails.map(email => `
-                            <span class="participant-chip">${email}</span>
-                        `).join('')}
-                    </div>
-                </div>
-                
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-semibold text-forest mb-2">Settings</h4>
-                        <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Privacy:</span> ${this.formData.privacy || 'Private'}</div>
-                            ${this.formData.deadline ? `<div><span class="font-medium">Response Deadline:</span> ${this.formData.deadline}</div>` : ''}
-                        </div>
-                    </div>
+                <h4 class="font-cinzel text-lg font-bold text-dnd-red mb-3 flex items-center">
+                    <span class="mr-2">${icon}</span> ${title}
+                </h4>
+                <div class="text-sm text-gray-300 space-y-2 relative z-10">
+                    ${content}
                 </div>
             </div>
         `;
+
+        // Icons
+        const icons = {
+            scroll: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+            clock: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+            users: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`,
+            settings: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`
+        };
+
+        const overviewContent = `
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Titolo:</span> <span class="text-white text-lg">${this.formData.title}</span></div>
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Tipo:</span> ${typeLabels[this.formData.type] || this.formData.type}</div>
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Durata:</span> ${formatDuration(this.formData.duration)}</div>
+            ${this.formData.description ? `<div class="mt-3 pt-3 border-t border-gray-700 italic text-gray-400">"${this.formData.description}"</div>` : ''}
+        `;
+
+        const timeContent = `
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Date:</span> 
+                <span class="text-white">${this.formData.dateRange.mode === 'multiple'
+                ? this.formData.dateRange.dates.length + ' giorni selezionati'
+                : `${this.formData.dateRange.start} - ${this.formData.dateRange.end}`}
+                </span>
+            </div>
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Fuso Orario:</span> ${this.formData.timezone}</div>
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Ricorrenza:</span> ${patternLabels[this.formData.recurringPattern] || 'Flessibile'}</div>
+            <div class="mt-3">
+                <span class="text-dnd-gray-400 font-semibold block mb-1">Fasce Orarie:</span>
+                <div class="flex flex-wrap">${formatTimeSlots(this.formData.timeSlots)}</div>
+            </div>
+        `;
+
+        const playersContent = `
+            <div class="mb-3">
+                <span class="text-dnd-gray-400 font-semibold">Invitati (${this.formData.emails.length}):</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                ${this.formData.emails.map(email => `
+                    <span class="participant-chip text-xs px-2 py-1 rounded bg-red-900/20 text-red-200 border border-red-900/40 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-dnd-red mr-2"></span>${email}
+                    </span>
+                `).join('')}
+            </div>
+        `;
+
+        const settingsContent = `
+            <div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Privacy:</span> ${privacyLabels[this.formData.privacy] || 'Privata'}</div>
+            ${this.formData.deadline ? `<div class="mb-2"><span class="text-dnd-gray-400 font-semibold">Scadenza:</span> ${this.formData.deadline}</div>` : ''}
+        `;
+
+        container.innerHTML = `
+            <div class="grid md:grid-cols-2 gap-6">
+                ${createSection('Panoramica Avventura', icons.scroll, overviewContent)}
+                ${createSection('Chronomancy (Orari)', icons.clock, timeContent)}
+                ${createSection('Il Party (Giocatori)', icons.users, playersContent)}
+                ${createSection('Impostazioni', icons.settings, settingsContent)}
+            </div>
+        `;
+    }
+
+    generateRRule() {
+        if (!this.formData.recurringPattern || this.formData.recurringPattern === 'flexible') {
+            return null;
+        }
+
+        let rrule = '';
+
+        switch (this.formData.recurringPattern) {
+            case 'weekly':
+                rrule = 'FREQ=WEEKLY';
+                if (this.formData.recurrenceDays && this.formData.recurrenceDays.length > 0) {
+                    rrule += ';BYDAY=' + this.formData.recurrenceDays.join(',');
+                }
+                break;
+            case 'biweekly':
+                rrule = 'FREQ=WEEKLY;INTERVAL=2';
+                if (this.formData.recurrenceDays && this.formData.recurrenceDays.length > 0) {
+                    rrule += ';BYDAY=' + this.formData.recurrenceDays.join(',');
+                }
+                break;
+            case 'monthly':
+                rrule = 'FREQ=MONTHLY';
+                // Default to same day of month for MVP
+                break;
+        }
+
+        // Default count or until could be added here, currently handled by backend limit (90 days)
+        return rrule;
     }
 
     async handleFormSubmission() {
         const submitBtn = document.querySelector('button[type="submit"]') || document.getElementById('next-btn');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating...';
+            submitBtn.textContent = 'Creazione in corso...';
         }
 
         try {
@@ -441,8 +544,12 @@ class PollCreator {
             if (this.formData.timezone) {
                 fullDescription += `\n\nTimezone: ${this.formData.timezone}`;
             }
-            if (this.formData.recurringPattern) {
-                fullDescription += `\nRecurring Pattern: ${this.formData.recurringPattern}`;
+
+            // RRULE Generation
+            const rrule = this.generateRRule();
+            // Don't append to description if we are sending it as a field
+            if (this.formData.recurringPattern && this.formData.recurringPattern !== 'flexible') {
+                // Optional: Add human readable text to description for legacy clients
             }
 
             // Prepare dates array based on selection mode
@@ -467,19 +574,30 @@ class PollCreator {
                 location: "Online", // Default to Online
                 dates: datesArray,
                 timeRange: JSON.stringify(this.formData.timeSlots),
-                participants: this.formData.emails
+                participants: this.formData.emails,
+                periodicity: this.formData.recurringPattern,
+                recurrence_rule: rrule // Send the generated RRULE
             };
+
+            // Retrieve auth token
+            const token = localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
 
             const response = await fetch('/api/polls', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers,
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
-                throw new Error('Failed to create poll');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Errore durante la creazione del sondaggio');
             }
 
             const data = await response.json();
@@ -493,10 +611,26 @@ class PollCreator {
             }, 2000);
         } catch (error) {
             console.error('Error creating poll:', error);
-            this.showValidationError('Failed to create poll. Please try again.');
+            // Display the actual error message from the server if available, strictly localized
+            let userMessage = 'Impossibile creare il sondaggio. Riprova.';
+
+            // Translate common backend errors for better UX
+            const errorMsg = error.message || '';
+            if (errorMsg.includes('Only Dungeon Masters')) {
+                userMessage = 'Solo i Dungeon Master possono creare sessioni.';
+            } else if (errorMsg.includes('email')) {
+                userMessage = 'Errore nel formato email.';
+            } else if (errorMsg.includes('date')) {
+                userMessage = 'Errore nelle date selezionate.';
+            } else if (errorMsg.length < 100 && errorMsg.length > 0) {
+                // If it's a short message (likely a valid error string), show it + generic fallback
+                userMessage = `Errore: ${errorMsg}`;
+            }
+
+            this.showValidationError(userMessage);
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Finish';
+                submitBtn.textContent = 'Crea';
             }
         }
     }
@@ -509,9 +643,9 @@ class PollCreator {
                 <div class="w-16 h-16 bg-emerald rounded-full flex items-center justify-center mx-auto mb-4">
                     <span class="text-white text-2xl">✓</span>
                 </div>
-                <h3 class="font-cinzel text-2xl font-bold text-forest mb-2">Campaign Created!</h3>
-                <p class="text-gray-600 mb-4">Your scheduling poll has been created and invitations sent to players.</p>
-                <p class="text-sm text-gray-500">Redirecting to management dashboard...</p>
+                <h3 class="font-cinzel text-2xl font-bold text-forest mb-2">Campagna Creata!</h3>
+                <p class="text-gray-600 mb-4">Il tuo sondaggio è stato creato e gli inviti sono stati inviati.</p>
+                <p class="text-sm text-gray-500">Reindirizzamento alla bacheca...</p>
             </div>
         `;
 
@@ -536,7 +670,7 @@ class PollCreator {
                     <span class="text-white text-sm">!</span>
                 </div>
                 <div class="flex-1">
-                    <div class="font-semibold text-sm">Validation Error</div>
+                    <div class="font-semibold text-sm">Errore di Validazione</div>
                     <div class="text-xs opacity-90 mt-1">${message}</div>
                 </div>
                 <button onclick="this.parentElement.parentElement.remove()" class="text-white/60 hover:text-white text-sm">×</button>

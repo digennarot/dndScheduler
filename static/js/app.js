@@ -33,60 +33,8 @@ class DDSchedulerApp {
                 const data = await detailResponse.json();
 
                 // Transform to frontend model
-                const poll = data.poll;
-                const parsedDates = JSON.parse(poll.dates);
-                // Handle both array format [start, end] and object format {start, end} if legacy
-                if (Array.isArray(parsedDates)) {
-                    poll.dateRange = { start: parsedDates[0], end: parsedDates[1] };
-                } else {
-                    poll.dateRange = parsedDates;
-                }
-                poll.timeSlots = poll.time_range ? JSON.parse(poll.time_range) : []; // stored as JSON
-
-                // Map participants to full objects to allow filtering by email/id
-                poll.participants = data.participants.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    email: p.email // Ensure this is available from backend if filtered
-                }));
-
-                // Add participants to users list if not present (to support getUserById)
-                data.participants.forEach(p => {
-                    if (!this.users.find(u => u.id === p.id)) {
-                        this.users.push({
-                            id: p.id,
-                            name: p.name,
-                            role: 'participant',
-                            avatar: p.name.substring(0, 2).toUpperCase()
-                        });
-                    }
-                });
-
-                // Map responses
-                poll.responses = {};
-                data.participants.forEach(p => {
-                    // Find availability for this participant
-                    const userAvailability = data.availability.filter(a => a.participant_id === p.id);
-                    if (userAvailability.length > 0) {
-                        const availabilityMap = {};
-                        let availableCount = 0;
-                        userAvailability.forEach(a => {
-                            availabilityMap[`${a.date}_${a.time_slot}`] = a.status;
-                            if (a.status === 'available') availableCount++;
-                        });
-
-                        poll.responses[p.id] = {
-                            responded: true,
-                            availability: availabilityMap,
-                            // Calculate simple percentage for the UI
-                            availabilityScore: Math.round((availableCount / (poll.timeSlots.length * poll.dateRange.length || 1)) * 100)
-                        };
-                    } else {
-                        poll.responses[p.id] = { responded: false };
-                    }
-                });
-
-                return poll;
+                // Transform to frontend model
+                return this.transformPollData(data);
             }));
 
             console.log('Polls loaded:', this.polls);
@@ -178,7 +126,7 @@ class DDSchedulerApp {
 
     formatDate(dateString) {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('it-IT', {
             weekday: 'short',
             month: 'short',
             day: 'numeric'
@@ -188,9 +136,114 @@ class DDSchedulerApp {
     formatTime(timeString) {
         const [date, time] = timeString.split(' ');
         const [hours, minutes] = time.split(':');
-        const hour12 = hours > 12 ? hours - 12 : hours;
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        return `${hour12}:${minutes} ${ampm}`;
+        // Use 24h format for Italian
+        return `${hours}:${minutes}`;
+    }
+
+    escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    async fetchSinglePoll(pollId) {
+        try {
+            const tokenKey = `dnd_poll_admin_${pollId}`;
+            const token = localStorage.getItem(tokenKey);
+
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`/api/polls/${pollId}`, { headers });
+            if (!response.ok) return null;
+
+            const data = await response.json();
+            const poll = this.transformPollData(data);
+
+            // Add/Update in this.polls
+            const existingIndex = this.polls.findIndex(p => p.id === poll.id);
+            if (existingIndex >= 0) {
+                this.polls[existingIndex] = poll;
+            } else {
+                this.polls.push(poll);
+            }
+            return poll;
+        } catch (e) {
+            console.error('Error fetching single poll', e);
+            return null;
+        }
+    }
+
+    transformPollData(data) {
+        const poll = data.poll;
+        let parsedDates = [];
+        try {
+            parsedDates = JSON.parse(poll.dates);
+        } catch (e) {
+            parsedDates = [];
+        }
+
+        // Handle both array format and object format
+        if (Array.isArray(parsedDates)) {
+            poll.datesList = parsedDates;
+            poll.dateRange = {
+                start: parsedDates[0],
+                end: parsedDates[parsedDates.length - 1]
+            };
+        } else {
+            poll.dateRange = parsedDates;
+            poll.datesList = [];
+        }
+
+        poll.timeSlots = poll.time_range ? JSON.parse(poll.time_range) : [];
+
+        poll.participants = data.participants.map(p => ({
+            id: p.id,
+            name: p.name,
+            email: p.email
+        }));
+
+        data.participants.forEach(p => {
+            if (!this.users.find(u => u.id === p.id)) {
+                this.users.push({
+                    id: p.id,
+                    name: p.name,
+                    role: 'participant',
+                    avatar: p.name.substring(0, 2).toUpperCase()
+                });
+            }
+        });
+
+        poll.responses = {};
+        data.participants.forEach(p => {
+            const userAvailability = data.availability.filter(a => a.participant_id === p.id);
+            if (userAvailability.length > 0) {
+                const availabilityMap = {};
+                let availableCount = 0;
+                userAvailability.forEach(a => {
+                    availabilityMap[`${a.date}_${a.time_slot}`] = a.status;
+                    if (a.status === 'available') availableCount++;
+                });
+
+                const totalSlots = (poll.datesList.length || 1) * (poll.timeSlots.length || 1);
+
+                poll.responses[p.id] = {
+                    responded: true,
+                    availability: availabilityMap,
+                    availabilityScore: totalSlots > 0 ? Math.round((availableCount / totalSlots) * 100) : 0
+                };
+            } else {
+                poll.responses[p.id] = { responded: false };
+            }
+        });
+
+        return poll;
     }
 }
 

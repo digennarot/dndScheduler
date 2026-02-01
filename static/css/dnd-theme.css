@@ -12,20 +12,20 @@
   --dnd-red-dark: #991b1b;
   --dnd-red-light: #ef4444;
   --dnd-crimson: #8b0000;
-  
+
   /* Accent Colors */
   --dnd-gold: #fbbf24;
   --dnd-gold-dark: #d97706;
-  
+
   /* Text Colors */
   --text-primary: #f5f5f5;
   --text-secondary: #d1d5db;
   --text-muted: #9ca3af;
-  
+
   /* Border & Divider */
   --border-color: #374151;
   --border-light: #4b5563;
-  
+
   /* Shadows */
   --shadow-red: 0 4px 20px rgba(220, 38, 38, 0.3);
   --shadow-red-lg: 0 8px 30px rgba(220, 38, 38, 0.4);
@@ -51,14 +51,12 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: 
-    repeating-linear-gradient(
-      0deg,
+  background-image:
+    repeating-linear-gradient(0deg,
       transparent,
       transparent 2px,
       rgba(220, 38, 38, 0.03) 2px,
-      rgba(220, 38, 38, 0.03) 4px
-    );
+      rgba(220, 38, 38, 0.03) 4px);
   pointer-events: none;
   z-index: 1;
 }
@@ -274,9 +272,12 @@ label {
 }
 
 @keyframes aurora {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -286,7 +287,12 @@ label {
    HEADINGS
    ============================================================================ */
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--text-primary) !important;
 }
 
@@ -364,6 +370,7 @@ footer a:hover {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -410,10 +417,12 @@ footer a:hover {
   nav {
     padding: 0.5rem 1rem;
   }
-  
+
   .mystical-glow {
-    padding: 1.5rem !important;
+    padding: 1rem !important;
   }
+
+
 }
 
 /* ============================================================================
@@ -455,4 +464,181 @@ footer a:hover {
 
 .flatpickr-day.today {
   border-color: var(--dnd-red-light) !important;
+}
+
+/* ============================================================================
+   LETTUCEMEET GRID - INTERACTIVE
+   ============================================================================ */
+
+.lettuce-grid-container {
+  overflow: auto;
+  position: relative;
+  max-height: 70vh;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--dnd-darker);
+  touch-action: none;
+  /* Critical for custom drag-to-paint on mobile */
+  margin-top: 1rem;
+}
+
+.lettuce-grid {
+  display: grid;
+  /* Columns set dynamically via JS style="grid-template-columns:..." */
+  gap: 1px;
+  background: var(--border-color);
+  /* Creates the grid lines */
+  user-select: none;
+  cursor: default;
+}
+
+/* Grid Cells */
+.grid-cell {
+  height: 40px;
+  background: var(--dnd-darker);
+  position: relative;
+  transition: background-color 0.05s ease;
+  /* Fast transition for responsiveness */
+}
+
+/* Headers (Sticky) */
+.grid-header-cell {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--dnd-dark);
+  border-bottom: 2px solid var(--dnd-red);
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 80px;
+}
+
+.grid-header-day {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.grid-header-date {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Time Labels (Sticky Left) */
+.grid-time-label {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background: var(--dnd-dark);
+  border-right: 2px solid var(--dnd-red-dark);
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  min-width: 60px;
+}
+
+/* Paint States */
+.grid-cell.available {
+  background: rgba(46, 204, 113, 0.6) !important;
+  /* Emerald Green */
+  box-shadow: inset 0 0 0 1px rgba(46, 204, 113, 0.3);
+}
+
+.grid-cell.preview-add {
+  background: rgba(46, 204, 113, 0.4) !important;
+}
+
+.grid-cell.preview-remove {
+  background: rgba(220, 38, 38, 0.4) !important;
+  /* Red for removing */
+}
+
+/* Heatmap Overlays (Group View) */
+.grid-cell.heatmap-0 {
+  background: var(--dnd-darker);
+}
+
+.grid-cell.heatmap-1 {
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.grid-cell.heatmap-2 {
+  background: rgba(46, 204, 113, 0.4);
+}
+
+.grid-cell.heatmap-3 {
+  background: rgba(46, 204, 113, 0.6);
+}
+
+.grid-cell.heatmap-4 {
+  background: rgba(46, 204, 113, 0.8);
+}
+
+.grid-cell.heatmap-5 {
+  background: rgba(46, 204, 113, 1.0);
+}
+
+/* Hover info tooltip container (handled by JS, but standard style) */
+.grid-tooltip {
+  position: absolute;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--dnd-red);
+  padding: 0.5rem;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 100;
+  color: white;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.grid-tooltip.visible {
+  opacity: 1;
+}
+/* ============================================================================
+   MOBILE OVERRIDES (Must be last)
+   ============================================================================ */
+@media (max-width: 768px) {
+  /* Mobile Grid Adjustments */
+  .lettuce-grid-container {
+    max-height: 60vh;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  /* Larger touch targets */
+  .grid-cell {
+    height: 50px;
+  }
+
+  .grid-header-cell {
+    min-width: 65px;
+    padding: 0.25rem;
+  }
+
+  .grid-header-date {
+    font-size: 0.9rem;
+  }
+
+  .grid-time-label {
+    min-width: 50px;
+    font-size: 0.7rem;
+    padding-right: 0.25rem;
+  }
 }

@@ -35,6 +35,46 @@ mod auth_integration_tests {
     }
 
     #[tokio::test]
+    async fn test_user_registration_with_phone() {
+        let pool = setup_test_db().await;
+
+        let email = "phone_user@test.com";
+        let password = "validPassword123";
+        let phone = "+393331234567";
+        let user_id = uuid::Uuid::new_v4().to_string();
+        let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
+        let now = chrono::Utc::now().timestamp();
+
+        // Insert user manually with phone number (simulating registration with phone)
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&user_id)
+        .bind(email)
+        .bind(&password_hash)
+        .bind("Phone User")
+        .bind("player")
+        .bind(now)
+        .bind(now)
+        .bind(phone)
+        .execute(&pool)
+        .await
+        .expect("Failed to insert user with phone");
+
+        // Verify retrieval
+        let saved_phone: Option<String> =
+            sqlx::query_scalar("SELECT phone FROM users WHERE email = ?")
+                .bind(email)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        assert_eq!(saved_phone, Some(phone.to_string()));
+
+        cleanup_test_db(&pool).await;
+    }
+
+    #[tokio::test]
     async fn test_user_cannot_register_with_duplicate_email() {
         let pool = setup_test_db().await;
 
@@ -81,11 +121,12 @@ mod auth_integration_tests {
         create_test_user(&pool, email, password, "player").await;
 
         // Verifica che il password hash sia corretto
-        let stored_hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
-            .bind(email)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let stored_hash: String =
+            sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
+                .bind(email)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         // Verifica che la password corrisponda
         let valid = bcrypt::verify(password, &stored_hash).unwrap();
@@ -106,11 +147,12 @@ mod auth_integration_tests {
         create_test_user(&pool, email, correct_password, "player").await;
 
         // Verifica password errata
-        let stored_hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
-            .bind(email)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let stored_hash: String =
+            sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
+                .bind(email)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         let valid = bcrypt::verify(wrong_password, &stored_hash).unwrap_or(false);
         assert!(!valid); // Password errata dovrebbe fallire
@@ -126,7 +168,8 @@ mod auth_integration_tests {
         let password = "SecurePass123!@#";
 
         // Crea utente con sessione
-        let (user_id, token) = create_test_user_with_session(&pool, email, password, "player").await;
+        let (user_id, token) =
+            create_test_user_with_session(&pool, email, password, "player").await;
 
         // Verifica che la sessione sia stata creata
         let session: Option<(String, i64)> =
@@ -155,7 +198,8 @@ mod auth_integration_tests {
         let password = "SecurePass123!@#";
 
         // Crea utente con sessione
-        let (_user_id, token) = create_test_user_with_session(&pool, email, password, "player").await;
+        let (_user_id, token) =
+            create_test_user_with_session(&pool, email, password, "player").await;
 
         // Simula logout (elimina sessione)
         sqlx::query("DELETE FROM user_sessions WHERE token = ?")
@@ -181,11 +225,11 @@ mod auth_integration_tests {
     async fn test_password_strength_requirements() {
         // Test password deboli (dovrebbero fallire in produzione)
         let weak_passwords = vec![
-            "short",           // Troppo corta
-            "nouppercase1!",   // Senza maiuscole
-            "NOLOWERCASE1!",   // Senza minuscole
-            "NoNumbers!",      // Senza numeri
-            "NoSpecial123",    // Senza caratteri speciali
+            "short",         // Troppo corta
+            "nouppercase1!", // Senza maiuscole
+            "NOLOWERCASE1!", // Senza minuscole
+            "NoNumbers!",    // Senza numeri
+            "NoSpecial123",  // Senza caratteri speciali
         ];
 
         // In produzione, questi dovrebbero fallire la validazione
@@ -193,11 +237,13 @@ mod auth_integration_tests {
         // il sistema dovrebbe rifiutare queste password
 
         for password in weak_passwords {
-            assert!(password.len() < 12 ||
-                    !password.chars().any(|c| c.is_uppercase()) ||
-                    !password.chars().any(|c| c.is_lowercase()) ||
-                    !password.chars().any(|c| c.is_numeric()) ||
-                    !password.chars().any(|c| !c.is_alphanumeric()));
+            assert!(
+                password.len() < 12
+                    || !password.chars().any(|c| c.is_uppercase())
+                    || !password.chars().any(|c| c.is_lowercase())
+                    || !password.chars().any(|c| c.is_numeric())
+                    || !password.chars().any(|c| !c.is_alphanumeric())
+            );
         }
     }
 }

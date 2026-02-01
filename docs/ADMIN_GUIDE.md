@@ -253,6 +253,12 @@ The sessions table provides:
 - **IP Limits**: Address-based throttling
 - **Burst Protection**: Handle traffic spikes
 
+#### Authelia SSO
+- **Configuration**: Managed via Caddy headers (ForwardAuth)
+- **Role Sync**: Automatic admin role assignment based on groups
+- **Groups**: `admins`, `admin`, or `administrators`
+- **Setup Guide**: See `docs/CADDY_AUTHELIA_CONFIG.md`
+
 ## Best Practices
 
 ### Security

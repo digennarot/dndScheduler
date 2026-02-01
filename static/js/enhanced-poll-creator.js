@@ -452,19 +452,37 @@ class EnhancedPollCreator {
             });
 
             if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to create poll');
+                // Try to parse JSON error first
+                let errorMessage = 'Failed to create poll';
+                try {
+                    const errorJson = await response.json();
+                    errorMessage = errorJson.error || errorMessage;
+                } catch (e) {
+                    errorMessage = await response.text() || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
             const result = await response.json();
             console.log('Poll created:', result);
 
-            this.showNotification('Campaign poll created successfully!', 'success');
+            // Story 1.5: Handle adminToken for anonymous management
+            if (result.adminToken) {
+                try {
+                    const tokenKey = `dnd_poll_admin_${result.id}`;
+                    localStorage.setItem(tokenKey, result.adminToken);
+                    console.log('Admin token saved');
+                } catch (e) {
+                    console.warn('Failed to save admin token', e);
+                }
+            }
 
-            // Redirect to the poll page
+            this.showNotification('Campaign created! Redirecting to setup...', 'success');
+
+            // Redirect to management page
             setTimeout(() => {
-                window.location.href = `participate.html?id=${result.id}`;
-            }, 1500);
+                window.location.href = `manage.html?poll=${result.id}&new=true`;
+            }, 1000);
 
         } catch (error) {
             console.error('Error creating poll:', error);

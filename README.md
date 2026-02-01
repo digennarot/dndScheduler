@@ -26,14 +26,23 @@ A sophisticated web application for scheduling Dungeons & Dragons sessions, insp
 
 ## 🏗️ Architecture
 
+### Backend Technologies
+- **Runtime**: Rust (Tokio)
+- **Framework**: Axum 0.7
+- **Database**: SQLite (via SQLx)
+- **Security**: 
+  - RBAC (Role-Based Access Control)
+  - Google OAuth 2.0 & Token-based Admin Auth
+  - Encrypted Sessions (Tower Sessions)
+
 ### Frontend Technologies
 - **HTML5**: Semantic markup with accessibility features
 - **Tailwind CSS**: Utility-first styling framework
-- **JavaScript ES6+**: Modern JavaScript with class-based architecture
+- **JavaScript ES6+**: Vanilla JS with modular architecture
 - **Animation Libraries**: 
   - Anime.js for smooth transitions
   - p5.js for particle effects
-  - ECharts.js for data visualization
+  - ECharts.js for analytics
 
 ### Design System
 - **Color Palette**: Deep forest greens, mystical purples, warm ambers
@@ -74,14 +83,25 @@ A sophisticated web application for scheduling Dungeons & Dragons sessions, insp
 - Local web server (optional but recommended)
 - Google account (for admin authentication)
 
-### Installation
-1. Clone or download the project files
-2. Navigate to the project directory
-3. Start a local web server:
+### Installation (Development)
+1. Clone the repository
+2. Copy `.env.example` to `.env` and configure keys
+3. Run with Cargo:
    ```bash
-   python -m http.server 8000
+   cargo run
    ```
-4. Open your browser and navigate to `http://localhost:8000`
+4. Visit `http://localhost:3000`
+
+### Installation (Production)
+The project includes a production-ready container setup supporting **Docker** and **Podman**.
+
+```bash
+./scripts/deploy.sh
+```
+This script automates:
+- Multi-stage build (Rust -> Debian Slim)
+- Database persistence setup
+- Caddy reverse proxy (auto-HTTPS) configuration
 
 ### Usage
 1. **Create a Session**: Use the poll creation wizard to set up your campaign
@@ -189,14 +209,18 @@ The application includes sample data for demonstration:
 - **Players**: Diverse set of participants with different availability patterns
 - **Responses**: Realistic response data showing various participation levels
 
-## 🔮 Future Enhancements
+## 🔮 Future Enhancements (See [ROADMAP.md](./docs/ROADMAP.md))
 
-- **Backend Integration**: Database persistence and user authentication
-- **Calendar Integration**: Google Calendar, Outlook, and Apple Calendar sync
-- **Advanced Analytics**: Participation patterns and scheduling insights
-- **Mobile App**: Native iOS and Android applications
-- **Recurring Sessions**: Support for ongoing campaign scheduling
-- **Notification System**: Email and push notifications
+- **Recurring Sessions**: Advanced scheduling patterns (Epic 5)
+- **User Profiles**: Avatars and RPG preferences (Epic 6)
+- **Timezone Intelligence**: Auto-conversion for international groups
+- **Calendar Sync**: Google/Outlook integration
+
+## ✅ Completed Features
+- **Backend Integration**: Full Rust/Axum implementation with SQLite persistence.
+- **Notification System**: Integrated Email (Lettre), WhatsApp (Twilio), and Telegram support.
+- **Admin Dashboard**: Secure management interface.
+- **Containerization**: Podman/Docker support.
 
 ## 🤝 Contributing
 
