@@ -11,6 +11,16 @@
         href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
 
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="{{OG_TITLE}}" />
+    <meta property="og:description" content="{{OG_DESCRIPTION}}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/images/dnd-preview.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{OG_TITLE}}" />
+    <meta name="twitter:description" content="{{OG_DESCRIPTION}}" />
+    <meta name="twitter:image" content="/images/dnd-preview.png" />
+
     <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
@@ -229,11 +239,13 @@
 
                     <div class="hidden md:flex items-center space-x-8">
                         <a href="index.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a>
-                        <a href="create-poll.html" class="text-gray-600 hover:text-forest transition-colors">Create
-                            Poll</a>
-                        <a href="participate.html" class="text-forest font-medium border-b-2 border-amber pb-1">Join
-                            Session</a>
-                        <a href="manage.html" class="text-gray-600 hover:text-forest transition-colors" id="nav-manage">Gestisci</a>
+                        <a href="create-poll.html" class="text-gray-600 hover:text-forest transition-colors">Crea
+                            Sondaggio</a>
+                        <a href="participate.html"
+                            class="text-forest font-medium border-b-2 border-amber pb-1">Partecipa
+                        </a>
+                        <a href="manage.html" class="text-gray-600 hover:text-forest transition-colors"
+                            id="nav-manage">Gestisci</a>
                     </div>
 
                     <div class="flex items-center space-x-4">
@@ -245,21 +257,21 @@
                         <!-- Login Link (shown when not logged in) -->
                         <a href="/login.html" id="login-link" style="display: none;"
                             class="text-gray-600 hover:text-forest transition-colors font-medium">
-                            Login
+                            Accedi
                         </a>
 
                         <!-- Logout Button (shown when logged in) -->
                         <button id="logout-btn" style="display: none;"
                             class="text-gray-600 hover:text-deep-red transition-colors font-medium">
-                            Logout
+                            Esci
                         </button>
 
                         <a href="admin.html" class="text-gray-600 hover:text-forest transition-colors">
-                            Admin
+                            Amministrazione
                         </a>
                         <button onclick="window.location.href='index.html'"
                             class="text-gray-600 hover:text-forest transition-colors">
-                            ← Back to Dashboard
+                            ← Torna alla Bacheca
                         </button>
                     </div>
                 </div>
@@ -272,7 +284,7 @@
                 <div class="text-center">
                     <h2 class="font-cinzel text-4xl font-bold text-forest mb-4">Indica la Tua Disponibilità</h2>
                     <p class="text-lg text-gray-700 max-w-2xl mx-auto">
-                        Help your party find the perfect time for your next adventure
+                        Aiuta il tuo gruppo a trovare il momento perfetto per la tua prossima avventura
                     </p>
                 </div>
             </div>
@@ -282,7 +294,7 @@
         <section class="py-8 bg-white/50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="bg-white rounded-xl shadow-lg mystical-glow p-6 mb-8">
-                    <h3 class="font-cinzel text-xl font-semibold text-forest mb-4">Select a Session to Join</h3>
+                    <h3 class="font-cinzel text-xl font-semibold text-forest mb-4">Seleziona una Sessione</h3>
                     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="session-list">
                         <!-- Le sessioni saranno caricate qui -->
                     </div>
@@ -299,13 +311,13 @@
                         <div class="bg-white rounded-xl shadow-lg mystical-glow p-6">
                             <div class="flex items-center justify-between mb-6">
                                 <div>
-                                    <h3 class="font-cinzel text-2xl font-bold text-forest" id="campaign-title">Campaign
-                                        Name</h3>
-                                    <p class="text-gray-600 mt-1" id="campaign-description">Campaign description</p>
+                                    <h3 class="font-cinzel text-2xl font-bold text-forest" id="campaign-title">Nome
+                                        Campagna</h3>
+                                    <p class="text-gray-600 mt-1" id="campaign-description">Descrizione campagna</p>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-sm text-gray-500">DM</div>
-                                    <div class="font-semibold text-forest" id="dm-name">DM Name</div>
+                                    <div class="font-semibold text-forest" id="dm-name">Nome DM</div>
                                 </div>
                             </div>
 
@@ -313,18 +325,22 @@
                             <div class="flex flex-wrap items-center mb-6 p-4 bg-gray-50 rounded-lg">
                                 <div class="legend-item">
                                     <div class="legend-color legend-available"></div>
-                                    <span>Available</span>
+                                    <span>Disponibile</span>
                                 </div>
                                 <div class="legend-item">
                                     <div class="legend-color legend-tentative"></div>
-                                    <span>Tentative</span>
+                                    <span>In Forse</span>
                                 </div>
                                 <div class="legend-item">
                                     <div class="legend-color legend-busy"></div>
-                                    <span>Busy</span>
+                                    <span>Occupato</span>
                                 </div>
-                                <div class="ml-auto text-sm text-gray-600">
-                                    Click cells to mark availability
+                                <div class="ml-auto text-sm text-gray-600 flex items-center gap-4">
+                                    <button id="toggle-view-btn" onclick="availabilityManager.toggleView()"
+                                        class="px-3 py-1 border border-amber text-amber rounded text-xs font-semibold hover:bg-amber hover:text-dnd-black transition-colors">
+                                        Vista Gruppo
+                                    </button>
+                                    <span>Clicca sulle celle per segnare la disponibilità</span>
                                 </div>
                             </div>
 
@@ -332,25 +348,26 @@
                             <div class="mb-4">
                                 <div class="bulk-actions">
                                     <button class="bulk-action-btn" onclick="availabilityManager.markAllAvailable()">
-                                        Mark All Available
+                                        Segna Tutto Disponibile
                                     </button>
                                     <button class="bulk-action-btn" onclick="availabilityManager.markAllBusy()">
-                                        Mark All Busy
+                                        Segna Tutto Occupato
                                     </button>
                                     <button class="bulk-action-btn" onclick="availabilityManager.clearAll()">
-                                        Clear All
+                                        Pulisci Tutto
                                     </button>
                                     <button class="bulk-action-btn" onclick="availabilityManager.markWeekends()">
-                                        Weekends Only
+                                        Solo Weekend
                                     </button>
                                     <button class="bulk-action-btn" onclick="availabilityManager.markWeekdays()">
-                                        Weekdays Only
+                                        Solo Giorni Feriali
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Availability Grid -->
-                            <div class="availability-grid" id="availability-grid">
+                            <!-- Availability Grid -->
+                            <div class="lettuce-grid-container" id="availability-grid">
                                 <!-- Grid will be generated by JavaScript -->
                             </div>
 
@@ -358,16 +375,16 @@
                             <div class="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
                                 <button onclick="availabilityManager.resetAvailability()"
                                     class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                                    Reset
+                                    Reimposta
                                 </button>
                                 <div class="flex space-x-4">
                                     <button onclick="availabilityManager.saveAsDraft()"
                                         class="px-6 py-3 border border-amber text-amber rounded-lg font-semibold hover:bg-amber hover:text-white transition-colors">
-                                        Save Draft
+                                        Salva Bozza
                                     </button>
                                     <button onclick="availabilityManager.submitAvailability()"
                                         class="bg-forest text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
-                                        Submit Availability
+                                        Invia Disponibilità
                                     </button>
                                 </div>
                             </div>
@@ -387,7 +404,7 @@
                                 </div>
 
                                 <div class="flex items-center justify-between">
-                                    <span class="text-sm text-gray-600">Responded</span>
+                                    <span class="text-sm text-gray-600">Hanno Risposto</span>
                                     <span class="font-semibold text-emerald" id="responded-count">0</span>
                                 </div>
 
@@ -421,15 +438,15 @@
 
                             <div class="space-y-3 text-sm">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Duration</span>
+                                    <span class="text-gray-600">Durata</span>
                                     <span class="font-medium" id="session-duration">-</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Timezone</span>
+                                    <span class="text-gray-600">Fuso Orario</span>
                                     <span class="font-medium" id="session-timezone">-</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Response Deadline</span>
+                                    <span class="text-gray-600">Scadenza Risposta</span>
                                     <span class="font-medium" id="response-deadline">-</span>
                                 </div>
                             </div>
@@ -465,7 +482,12 @@
             // User will be redirected to login
         }
     </script>
+    <link rel="stylesheet" href="css/themes/arcane.css">
     <script src="js/app.js"></script>
+    <script type="module">
+        import { MagicalGrid } from './js/components/magical-grid.js';
+        window.MagicalGrid = MagicalGrid; // Expose to global for app.js or inline scripts
+    </script>
     <script src="js/particles.js"></script>
     <script src="js/availability-manager.js"></script>
 </body>

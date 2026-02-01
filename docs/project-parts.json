@@ -1,0 +1,40 @@
+{
+    "repository_type": "multi-part",
+    "parts": [
+        {
+            "id": "backend",
+            "type": "backend",
+            "root": ".",
+            "tech": "rust",
+            "docs": [
+                "architecture-backend.md",
+                "api-contracts-backend.md",
+                "data-models-backend.md"
+            ]
+        },
+        {
+            "id": "frontend",
+            "type": "web",
+            "root": "static",
+            "tech": "javascript",
+            "docs": [
+                "architecture-frontend.md",
+                "component-inventory.md"
+            ]
+        }
+    ],
+    "integration_points": [
+        {
+            "from": "frontend",
+            "to": "backend",
+            "type": "REST API",
+            "details": "JSON over HTTP"
+        },
+        {
+            "from": "backend",
+            "to": "frontend",
+            "type": "Static Serving",
+            "details": "Axum ServeDir"
+        }
+    ]
+}

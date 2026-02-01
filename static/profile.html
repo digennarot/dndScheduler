@@ -64,11 +64,9 @@
                         <h1 class="font-cinzel text-xl font-semibold text-forest">Impostazioni Profilo</h1>
                     </div>
 
-                    <div class="flex items-center space-x-4">
-                        <a href="/dashboard.html" class="text-gray-600 hover:text-forest transition-colors">
-                            ← Torna alla Dashboard
-                        </a>
-                    </div>
+                    <a href="/dashboard.html" class="text-gray-600 hover:text-forest transition-colors">
+                        ← Torna alla Bacheca
+                    </a>
                 </div>
             </div>
         </nav>
@@ -455,7 +453,7 @@
             errorDiv.classList.add('hidden');
 
             saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = 'Salvataggio in corso...';
 
             try {
                 // Call backend API to update profile
@@ -524,7 +522,7 @@
             }
 
             passwordBtn.disabled = true;
-            passwordBtn.textContent = 'Changing password...';
+            passwordBtn.textContent = 'Cambio password in corso...';
 
             try {
                 // Call backend API to change password

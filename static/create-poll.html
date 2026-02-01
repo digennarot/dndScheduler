@@ -58,70 +58,7 @@
   <script src="js/auth-utils.js"></script>
 
   <style>
-    body {
-      background: linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%);
-      min-height: 100vh;
-    }
-
-    .aurora-bg {
-      background: linear-gradient(45deg,
-          rgba(26, 61, 46, 0.1) 0%,
-          rgba(107, 91, 149, 0.1) 25%,
-          rgba(212, 165, 116, 0.1) 50%,
-          rgba(74, 124, 89, 0.1) 75%,
-          rgba(26, 61, 46, 0.1) 100%);
-      background-size: 400% 400%;
-      animation: aurora 20s ease-in-out infinite;
-    }
-
-    @keyframes aurora {
-
-      0%,
-      100% {
-        background-position: 0% 50%;
-      }
-
-      50% {
-        background-position: 100% 50%;
-      }
-    }
-
-    .mystical-glow {
-      box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
-      transition: all 0.3s ease;
-    }
-
-    .mystical-glow:hover {
-      box-shadow: 0 8px 30px rgba(212, 165, 116, 0.4);
-      transform: translateY(-2px);
-    }
-
-    .step-indicator {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      transition: all 0.3s ease;
-    }
-
-    .step-active {
-      background: linear-gradient(135deg, #1a3d2e 0%, #6b5b95 100%);
-      color: white;
-      box-shadow: 0 4px 15px rgba(26, 61, 46, 0.3);
-    }
-
-    .step-completed {
-      background: linear-gradient(135deg, #4a7c59 0%, #d4a574 100%);
-      color: white;
-    }
-
-    .step-inactive {
-      background: #e5e7eb;
-      color: #6b7280;
-    }
+    /* Layout styles only - Colors are handled by dnd-theme.css */
 
     .form-step {
       display: none;
@@ -129,58 +66,7 @@
 
     .form-step.active {
       display: block;
-      animation: fadeInUp 0.5s ease-out;
-    }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .time-slot {
-      padding: 8px 12px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 14px;
-    }
-
-    .time-slot:hover {
-      border-color: #d4a574;
-      background-color: rgba(212, 165, 116, 0.1);
-    }
-
-    .time-slot.selected {
-      border-color: #1a3d2e;
-      background-color: rgba(26, 61, 46, 0.1);
-      color: #1a3d2e;
-      font-weight: 600;
-    }
-
-    .participant-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 12px;
-      background: rgba(26, 61, 46, 0.1);
-      color: #1a3d2e;
-      border-radius: 20px;
-      font-size: 14px;
-      margin: 4px;
-      transition: all 0.3s ease;
-    }
-
-    .participant-chip:hover {
-      background: rgba(26, 61, 46, 0.2);
+      /* Animation is handled by dnd-theme.css */
     }
 
     .particle-canvas {
@@ -214,12 +100,13 @@
               <span class="text-white font-cinzel font-bold text-lg">D&D</span>
             </div>
             <h1 class="font-cinzel text-xl font-semibold text-forest">
-              Session Scheduler
+              Pianificatore Sessioni
             </h1>
           </div>
 
           <div class="hidden md:flex items-center space-x-8">
-            <a href="dashboard.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a>            <a href="participate.html" class="text-gray-600 hover:text-forest transition-colors">Partecipa</a>
+            <a href="dashboard.html" class="text-gray-600 hover:text-forest transition-colors">Bacheca</a> <a
+              href="participate.html" class="text-gray-600 hover:text-forest transition-colors">Partecipa</a>
             <a href="manage.html" class="text-gray-600 hover:text-forest transition-colors" id="nav-manage">Gestisci</a>
           </div>
 
@@ -235,11 +122,10 @@
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center">
           <h2 class="font-cinzel text-4xl font-bold text-forest mb-4">
-            Create New Campaign
+            Crea Nuova Campagna
           </h2>
           <p class="text-lg text-gray-700 max-w-2xl mx-auto">
-            Set up your adventure scheduling poll and gather availability from
-            your party members
+            Configura il sondaggio per la tua avventura e raccogli le disponibilità del tuo gruppo
           </p>
         </div>
       </div>
@@ -253,35 +139,35 @@
             <div class="step-indicator step-active" id="step-1-indicator">
               1
             </div>
-            <span class="ml-3 text-sm font-medium text-forest">Campaign Details</span>
+            <span class="ml-3 text-sm font-medium text-forest">Dettagli</span>
           </div>
           <div class="w-16 h-1 bg-gray-200"></div>
           <div class="flex items-center">
             <div class="step-indicator step-inactive" id="step-2-indicator">
               2
             </div>
-            <span class="ml-3 text-sm font-medium text-gray-500">Data Range</span>
+            <span class="ml-3 text-sm font-medium text-gray-500">Date</span>
           </div>
           <div class="w-16 h-1 bg-gray-200"></div>
           <div class="flex items-center">
             <div class="step-indicator step-inactive" id="step-3-indicator">
               3
             </div>
-            <span class="ml-3 text-sm font-medium text-gray-500">Ora Preferences</span>
+            <span class="ml-3 text-sm font-medium text-gray-500">Orari</span>
           </div>
           <div class="w-16 h-1 bg-gray-200"></div>
           <div class="flex items-center">
             <div class="step-indicator step-inactive" id="step-4-indicator">
               4
             </div>
-            <span class="ml-3 text-sm font-medium text-gray-500">Invite Players</span>
+            <span class="ml-3 text-sm font-medium text-gray-500">Inviti</span>
           </div>
           <div class="w-16 h-1 bg-gray-200"></div>
           <div class="flex items-center">
             <div class="step-indicator step-inactive" id="step-5-indicator">
               5
             </div>
-            <span class="ml-3 text-sm font-medium text-gray-500">Review</span>
+            <span class="ml-3 text-sm font-medium text-gray-500">Riepilogo</span>
           </div>
         </div>
       </div>
@@ -295,70 +181,70 @@
             <!-- Step 1: Campaign Details -->
             <div class="form-step active" id="step-1">
               <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
-                Campaign Information
+                Informazioni Campagna
               </h3>
 
               <div class="space-y-6">
                 <div>
                   <label for="campaign-title" class="block text-sm font-semibold text-gray-700 mb-2">
-                    Campaign Name *
+                    Nome Campagna *
                   </label>
                   <input type="text" id="campaign-title" name="title" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                    placeholder="e.g., Tomb of Annihilation" />
+                    placeholder="es. La Tomba dell'Annientamento" />
                   <p class="text-sm text-gray-500 mt-1">
-                    Give your adventure a memorable name
+                    Dai un nome memorabile alla tua avventura
                   </p>
                 </div>
 
                 <div>
                   <label for="campaign-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                    Description
+                    Descrizione
                   </label>
                   <textarea id="campaign-description" name="description" rows="4"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                    placeholder="Brief description of your campaign, session goals, or any important notes..."></textarea>
+                    placeholder="Breve descrizione della campagna, obiettivi della sessione o note importanti..."></textarea>
                   <p class="text-sm text-gray-500 mt-1">
-                    Help your players understand what to expect
+                    Aiuta i giocatori a capire cosa aspettarsi
                   </p>
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-6">
                   <div>
                     <label for="session-duration" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Session Duration *
+                      Durata Sessione *
                     </label>
                     <select id="session-duration" name="duration" required
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
-                      <option value="">Select duration</option>
-                      <option value="120">2 hours</option>
-                      <option value="180">3 hours</option>
-                      <option value="240">4 hours</option>
-                      <option value="300">5 hours</option>
-                      <option value="360">6 hours</option>
+                      <option value="">Seleziona durata</option>
+                      <option value="120">2 ore</option>
+                      <option value="180">3 ore</option>
+                      <option value="240">4 ore</option>
+                      <option value="300">5 ore</option>
+                      <option value="360">6 ore</option>
                     </select>
                     <p class="text-sm text-gray-500 mt-1">
-                      How long will each session run?
+                      Quanto durerà ogni sessione?
                     </p>
                   </div>
 
                   <div>
                     <label for="campaign-type" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Campaign Type
+                      Tipo di Campagna
                     </label>
                     <select id="campaign-type" name="type"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
-                      <option value="one-shot">One-Shot Adventure</option>
+                      <option value="one-shot">Avventura One-Shot</option>
                       <option value="short-campaign">
-                        Short Campaign (2-6 sessions)
+                        Campagna Breve (2-6 sessioni)
                       </option>
                       <option value="long-campaign">
-                        Long Campaign (7+ sessions)
+                        Campagna Lunga (7+ sessioni)
                       </option>
-                      <option value="ongoing">Ongoing Campaign</option>
+                      <option value="ongoing">Campagna Continuativa</option>
                     </select>
                     <p class="text-sm text-gray-500 mt-1">
-                      Help players understand the commitment level
+                      Aiuta i giocatori a capire l'impegno richiesto
                     </p>
                   </div>
                 </div>
@@ -368,13 +254,13 @@
             <!-- Step 2: Date Range -->
             <div class="form-step" id="step-2">
               <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
-                Select Date Range
+                Seleziona Date
               </h3>
 
               <div class="space-y-6">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-3">
-                    Selection Mode
+                    Modalità di Selezione
                   </label>
                   <div class="flex space-x-4 mb-6">
                     <label class="flex-1 cursor-pointer">
@@ -382,8 +268,8 @@
                         onchange="pollCreator.updateDateMode('day')">
                       <div
                         class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
-                        <div class="font-semibold">Specific Dates</div>
-                        <div class="text-xs text-gray-500 mt-1">Select individual days</div>
+                        <div class="font-semibold">Date Specifiche</div>
+                        <div class="text-xs text-gray-500 mt-1">Seleziona singoli giorni</div>
                       </div>
                     </label>
                     <label class="flex-1 cursor-pointer">
@@ -391,8 +277,8 @@
                         onchange="pollCreator.updateDateMode('week')">
                       <div
                         class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
-                        <div class="font-semibold">Whole Week</div>
-                        <div class="text-xs text-gray-500 mt-1">Mon - Sun</div>
+                        <div class="font-semibold">Settimana Intera</div>
+                        <div class="text-xs text-gray-500 mt-1">Lun - Dom</div>
                       </div>
                     </label>
                     <label class="flex-1 cursor-pointer">
@@ -400,40 +286,37 @@
                         onchange="pollCreator.updateDateMode('month')">
                       <div
                         class="text-center py-3 px-4 border-2 border-gray-200 rounded-lg peer-checked:border-forest peer-checked:bg-forest/10 peer-checked:text-forest transition-all hover:border-amber">
-                        <div class="font-semibold">Whole Month</div>
-                        <div class="text-xs text-gray-500 mt-1">Entire month</div>
+                        <div class="font-semibold">Mese Intero</div>
+                        <div class="text-xs text-gray-500 mt-1">Tutto il Mese</div>
                       </div>
                     </label>
                   </div>
 
                   <label for="date-range" class="block text-sm font-semibold text-gray-700 mb-2">
-                    Available Dates *
+                    Date Disponibili *
                   </label>
                   <input type="text" id="date-range" name="dateRange" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                    placeholder="Select dates..." />
+                    placeholder="Seleziona le date..." />
                   <p class="text-sm text-gray-500 mt-1">
-                    Choose the period when you're available to run sessions
+                    Scegli il periodo in cui sei disponibile per le sessioni
                   </p>
                 </div>
 
                 <div class="bg-amber/10 p-6 rounded-lg">
                   <h4 class="font-semibold text-forest mb-3">
-                    📅 Date Range Tips
+                    📅 Consigli sulle Date
                   </h4>
                   <ul class="space-y-2 text-sm text-gray-700">
                     <li>
-                      • Select a range that gives players enough time to
-                      respond (3-7 days)
+                      • Seleziona un periodo che dia ai giocatori tempo per rispondere (3-7 giorni)
                     </li>
-                    <li>• Consider holidays and common vacation periods</li>
+                    <li>• Considera festività e vacanze</li>
                     <li>
-                      • For recurring campaigns, select dates for the next 2-4
-                      weeks
+                      • Per campagne ricorrenti, seleziona date per le prossime 2-4 settimane
                     </li>
                     <li>
-                      • Weekend sessions are popular but weekday evenings work
-                      too
+                      • I weekend sono popolari ma anche le sere infrasettimanali vanno bene
                     </li>
                   </ul>
                 </div>
@@ -443,30 +326,30 @@
             <!-- Step 3: Time Preferences -->
             <div class="form-step" id="step-3">
               <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
-                Time Preferences
+                Preferenze Orarie
               </h3>
 
               <div class="space-y-6">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-4">
-                    Preferred Session Times *
+                    Fasce Orarie Preferite *
                   </label>
                   <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3" id="time-slots">
                     <!-- Time slots will be generated by JavaScript -->
                   </div>
                   <p class="text-sm text-gray-500 mt-3">
-                    Select all time slots when you'd prefer to run sessions
+                    Seleziona tutte le fasce orarie in cui preferisci giocare
                   </p>
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-6">
                   <div>
                     <label for="timezone" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Your Timezone *
+                      Il Tuo Fuso Orario *
                     </label>
                     <select id="timezone" name="timezone" required
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
-                      <option value="">Select timezone</option>
+                      <option value="">Seleziona fuso orario</option>
                       <option value="America/New_York">
                         Eastern Time (EST/EDT)
                       </option>
@@ -493,14 +376,14 @@
 
                   <div>
                     <label for="recurring-pattern" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Recurring Pattern
+                      Ricorrenza
                     </label>
                     <select id="recurring-pattern" name="recurringPattern"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
-                      <option value="flexible">Flexible Schedule</option>
-                      <option value="weekly">Weekly Sessions</option>
-                      <option value="biweekly">Bi-weekly Sessions</option>
-                      <option value="monthly">Monthly Sessions</option>
+                      <option value="flexible">Flessibile</option>
+                      <option value="weekly">Settimanale</option>
+                      <option value="biweekly">Bi-settimanale</option>
+                      <option value="monthly">Mensile</option>
                     </select>
                   </div>
                 </div>
@@ -510,45 +393,45 @@
             <!-- Step 4: Invite Players -->
             <div class="form-step" id="step-4">
               <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
-                Invite Players
+                Invita Giocatori
               </h3>
 
               <div class="space-y-6">
                 <div>
                   <label for="player-emails" class="block text-sm font-semibold text-gray-700 mb-2">
-                    Player Email Addresses *
+                    Email dei Giocatori *
                   </label>
                   <textarea id="player-emails" name="emails" rows="4" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent"
-                    placeholder="Enter email addresses separated by commas or line breaks&#10;e.g., player1@email.com, player2@email.com"></textarea>
+                    placeholder="Inserisci indirizzi email separati da virgola o a capo&#10;es. player1@email.com, player2@email.com"></textarea>
                   <p class="text-sm text-gray-500 mt-1">
-                    Invite 3-6 players for optimal group size
+                    Invita 3-6 giocatori per un gruppo ottimale
                   </p>
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-6">
                   <div>
                     <label for="response-deadline" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Response Deadline
+                      Scadenza Risposte
                     </label>
                     <input type="date" id="response-deadline" name="deadline"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent" />
                     <p class="text-sm text-gray-500 mt-1">
-                      Optional - Set when responses are due
+                      Opzionale - Imposta entro quando rispondere
                     </p>
                   </div>
 
                   <div>
                     <label for="privacy-setting" class="block text-sm font-semibold text-gray-700 mb-2">
-                      Privacy Setting
+                      Impostazioni Privacy
                     </label>
                     <select id="privacy-setting" name="privacy"
                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber focus:border-transparent">
                       <option value="private">
-                        Private - Invitation only
+                        Privata - Solo su invito
                       </option>
                       <option value="public">
-                        Public - Anyone with link can join
+                        Pubblica - Chiunque col link può unirsi
                       </option>
                     </select>
                   </div>
@@ -556,19 +439,19 @@
 
                 <div class="bg-emerald/10 p-6 rounded-lg">
                   <h4 class="font-semibold text-forest mb-3">
-                    🎲 Invitation Tips
+                    🎲 Consigli sugli Inviti
                   </h4>
                   <ul class="space-y-2 text-sm text-gray-700">
                     <li>
-                      • Send invitations to players you know are interested
+                      • Invia inviti a giocatori che sai essere interessati
                     </li>
                     <li>
-                      • Include new players who might enjoy the campaign
+                      • Includi nuovi giocatori che potrebbero divertirsi
                     </li>
                     <li>
-                      • Consider players' experience levels and preferences
+                      • Considera livello e preferenze dei giocatori
                     </li>
-                    <li>• A balanced party usually has 4-5 players</li>
+                    <li>• Un gruppo bilanciato di solito ha 4-5 giocatori</li>
                   </ul>
                 </div>
               </div>
@@ -577,7 +460,7 @@
             <!-- Step 5: Review -->
             <div class="form-step" id="step-5">
               <h3 class="font-cinzel text-2xl font-bold text-forest mb-6">
-                Review & Create
+                Riepilogo e Creazione
               </h3>
 
               <div class="space-y-6" id="review-content">
@@ -586,21 +469,21 @@
 
               <div class="bg-mystic/10 p-6 rounded-lg">
                 <h4 class="font-semibold text-forest mb-3">
-                  ✨ Ready to Launch Your Adventure?
+                  ✨ Pronto a Lanciare la Tua Avventura?
                 </h4>
                 <p class="text-sm text-gray-700 mb-4">
-                  Once you create this poll, invited players will receive
-                  email notifications to mark their availability. You'll be
-                  able to track responses in real-time and finalize the
-                  perfect session time.
+                  Una volta creato il sondaggio, i giocatori invitati riceveranno
+                  una notifica via email per segnare la loro disponibilità. Potrai
+                  tracciare le risposte in tempo reale e fissare il momento
+                  perfetto per la sessione.
                 </p>
                 <div class="flex items-center space-x-4">
                   <button type="submit" class="bg-forest text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
-                    Create Campaign Poll
+                    Crea Sondaggio Campagna
                   </button>
                   <button type="button" onclick="pollCreator.goToStep(4)"
                     class="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                    Back to Edit
+                    Torna a Modificare
                   </button>
                 </div>
               </div>
@@ -611,14 +494,14 @@
               <button type="button" id="prev-btn" onclick="pollCreator.previousStep()"
                 class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
                 style="display: none">
-                ← Previous
+                ← Precedente
               </button>
 
               <div class="flex-1"></div>
 
               <button type="button" id="next-btn" onclick="pollCreator.nextStep()"
                 class="bg-amber text-white px-6 py-3 rounded-lg font-semibold mystical-glow">
-                Next →
+                Successivo →
               </button>
             </div>
           </form>
@@ -636,7 +519,7 @@
           <h4 class="font-cinzel text-xl font-semibold">Pianificatore Sessioni</h4>
         </div>
         <p class="text-amber/80 mb-4">
-          Bringing adventurers together, one session at a time
+          Unendo gli avventurieri, una sessione alla volta
         </p>
         <p class="text-sm text-amber/60">
           © 2025 Pianificatore Sessioni D&D. Creato con precisione magica.
@@ -648,7 +531,7 @@
   <!-- JavaScript -->
   <script src="js/app.js"></script>
   <script src="js/particles.js"></script>
-  <script src="js/poll-creator.js"></script>
+  <script src="js/poll-creator.js?v=2"></script>
 
   <!-- Require Authentication -->
   <script>

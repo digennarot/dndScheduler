@@ -37,9 +37,7 @@ class PollCreator {
 
     formatTime(time) {
         const [hours, minutes] = time.split(':');
-        const hour12 = hours > 12 ? hours - 12 : hours;
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        return `${hour12}:00 ${ampm}`;
+        return `${hours}:00`;
     }
 
     initializeDatePicker() {
@@ -211,12 +209,12 @@ class PollCreator {
         const duration = document.getElementById('session-duration').value;
 
         if (!title) {
-            this.showValidationError('Campaign title is required');
+            this.showValidationError('Il titolo della campagna è obbligatorio');
             return false;
         }
 
         if (!duration) {
-            this.showValidationError('Session duration is required');
+            this.showValidationError('La durata della sessione è obbligatoria');
             return false;
         }
 
@@ -225,7 +223,7 @@ class PollCreator {
 
     validateStep2() {
         if (!this.formData.dateRange) {
-            this.showValidationError('Please select dates');
+            this.showValidationError('Seleziona le date');
             return false;
         }
 
@@ -234,7 +232,7 @@ class PollCreator {
         const hasRange = this.formData.dateRange.start && this.formData.dateRange.end;
 
         if (!hasMultipleDates && !hasRange) {
-            this.showValidationError('Please select at least one date');
+            this.showValidationError('Seleziona almeno una data');
             return false;
         }
 
@@ -243,13 +241,13 @@ class PollCreator {
 
     validateStep3() {
         if (this.selectedTimeSlots.length === 0) {
-            this.showValidationError('Please select at least one preferred time slot');
+            this.showValidationError('Seleziona almeno una fascia oraria preferita');
             return false;
         }
 
         const timezone = document.getElementById('timezone').value;
         if (!timezone) {
-            this.showValidationError('Please select your timezone');
+            this.showValidationError('Seleziona il tuo fuso orario');
             return false;
         }
 
@@ -259,7 +257,7 @@ class PollCreator {
     validateStep4() {
         const emails = document.getElementById('player-emails').value.trim();
         if (!emails) {
-            this.showValidationError('Please enter at least one player email address');
+            this.showValidationError('Inserisci almeno un indirizzo email');
             return false;
         }
 
@@ -269,13 +267,13 @@ class PollCreator {
 
         for (const email of emailList) {
             if (!emailRegex.test(email)) {
-                this.showValidationError(`Invalid email address: ${email}`);
+                this.showValidationError(`Indirizzo email non valido: ${email}`);
                 return false;
             }
         }
 
         if (emailList.length > 10) {
-            this.showValidationError('Maximum 10 players allowed per poll');
+            this.showValidationError('Massimo 10 giocatori consentiti per sondaggio');
             return false;
         }
 
@@ -361,7 +359,7 @@ class PollCreator {
             nextBtn.style.display = 'none';
         } else {
             nextBtn.style.display = 'block';
-            nextBtn.textContent = this.currentStep === this.totalSteps - 1 ? 'Review →' : 'Next →';
+            nextBtn.textContent = this.currentStep === this.totalSteps - 1 ? 'Riepilogo →' : 'Avanti →';
         }
     }
 
@@ -376,38 +374,57 @@ class PollCreator {
         const formatDuration = (minutes) => {
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
-            return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
+            return mins > 0 ? `${hours}h ${mins}m` : `${hours} ore`;
+        };
+
+        const typeLabels = {
+            'one-shot': 'Avventura One-Shot',
+            'short-campaign': 'Campagna Breve',
+            'long-campaign': 'Campagna Lunga',
+            'ongoing': 'Campagna Continuativa'
+        };
+
+        const patternLabels = {
+            'flexible': 'Flessibile',
+            'weekly': 'Settimanale',
+            'biweekly': 'Bi-settimanale',
+            'monthly': 'Mensile'
+        };
+
+        const privacyLabels = {
+            'private': 'Privata',
+            'public': 'Pubblica'
         };
 
         container.innerHTML = `
             <div class="bg-gray-50 p-6 rounded-lg space-y-4">
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
-                        <h4 class="font-semibold text-forest mb-2">Campaign Details</h4>
+                        <h4 class="font-semibold text-forest mb-2">Dettagli Campagna</h4>
                         <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Title:</span> ${this.formData.title}</div>
-                            <div><span class="font-medium">Type:</span> ${this.formData.type || 'Not specified'}</div>
-                            <div><span class="font-medium">Duration:</span> ${formatDuration(this.formData.duration)}</div>
-                            ${this.formData.description ? `<div><span class="font-medium">Description:</span> ${this.formData.description}</div>` : ''}
+                            <div><span class="font-medium">Titolo:</span> ${this.formData.title}</div>
+                            <div><span class="font-medium">Tipo:</span> ${typeLabels[this.formData.type] || this.formData.type || 'Non specificato'}</div>
+                            <div><span class="font-medium">Durata:</span> ${formatDuration(this.formData.duration)}</div>
+                            ${this.formData.description ? `<div><span class="font-medium">Descrizione:</span> ${this.formData.description}</div>` : ''}
                         </div>
                     </div>
                     
                     <div>
-                        <h4 class="font-semibold text-forest mb-2">Schedule Preferences</h4>
+                        <h4 class="font-semibold text-forest mb-2">Preferenze Orarie</h4>
                         <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Dates:</span> ${this.formData.dateRange.mode === 'multiple'
+                            <div><span class="font-medium">Date:</span> ${this.formData.dateRange.mode === 'multiple'
                 ? this.formData.dateRange.dates.join(', ')
-                : `${this.formData.dateRange.start} to ${this.formData.dateRange.end}`
+                : `${this.formData.dateRange.start} al ${this.formData.dateRange.end}`
             }</div>
-                            <div><span class="font-medium">Timezone:</span> ${this.formData.timezone}</div>
-                            <div><span class="font-medium">Pattern:</span> ${this.formData.recurringPattern || 'Flexible'}</div>
-                            <div><span class="font-medium">Preferred Times:</span> ${formatTimeSlots(this.formData.timeSlots)}</div>
+                            <div><span class="font-medium">Fuso Orario:</span> ${this.formData.timezone}</div>
+                            <div><span class="font-medium">Ricorrenza:</span> ${patternLabels[this.formData.recurringPattern] || this.formData.recurringPattern || 'Flessibile'}</div>
+                            <div><span class="font-medium">Orari Preferiti:</span> ${formatTimeSlots(this.formData.timeSlots)}</div>
                         </div>
                     </div>
                 </div>
                 
                 <div>
-                    <h4 class="font-semibold text-forest mb-2">Invited Players (${this.formData.emails.length})</h4>
+                    <h4 class="font-semibold text-forest mb-2">Giocatori Invitati (${this.formData.emails.length})</h4>
                     <div class="flex flex-wrap gap-2">
                         ${this.formData.emails.map(email => `
                             <span class="participant-chip">${email}</span>
@@ -417,10 +434,10 @@ class PollCreator {
                 
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
-                        <h4 class="font-semibold text-forest mb-2">Settings</h4>
+                        <h4 class="font-semibold text-forest mb-2">Impostazioni</h4>
                         <div class="space-y-2 text-sm">
-                            <div><span class="font-medium">Privacy:</span> ${this.formData.privacy || 'Private'}</div>
-                            ${this.formData.deadline ? `<div><span class="font-medium">Response Deadline:</span> ${this.formData.deadline}</div>` : ''}
+                            <div><span class="font-medium">Privacy:</span> ${privacyLabels[this.formData.privacy] || this.formData.privacy || 'Privata'}</div>
+                            ${this.formData.deadline ? `<div><span class="font-medium">Scadenza Risposte:</span> ${this.formData.deadline}</div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -432,7 +449,7 @@ class PollCreator {
         const submitBtn = document.querySelector('button[type="submit"]') || document.getElementById('next-btn');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating...';
+            submitBtn.textContent = 'Creazione in corso...';
         }
 
         try {
@@ -470,16 +487,25 @@ class PollCreator {
                 participants: this.formData.emails
             };
 
+            // Retrieve auth token
+            const token = localStorage.getItem('authToken');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch('/api/polls', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers,
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
-                throw new Error('Failed to create poll');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Errore durante la creazione del sondaggio');
             }
 
             const data = await response.json();
@@ -493,10 +519,26 @@ class PollCreator {
             }, 2000);
         } catch (error) {
             console.error('Error creating poll:', error);
-            this.showValidationError('Failed to create poll. Please try again.');
+            // Display the actual error message from the server if available, strictly localized
+            let userMessage = 'Impossibile creare il sondaggio. Riprova.';
+
+            // Translate common backend errors for better UX
+            const errorMsg = error.message || '';
+            if (errorMsg.includes('Only Dungeon Masters')) {
+                userMessage = 'Solo i Dungeon Master possono creare sessioni.';
+            } else if (errorMsg.includes('email')) {
+                userMessage = 'Errore nel formato email.';
+            } else if (errorMsg.includes('date')) {
+                userMessage = 'Errore nelle date selezionate.';
+            } else if (errorMsg.length < 100 && errorMsg.length > 0) {
+                // If it's a short message (likely a valid error string), show it + generic fallback
+                userMessage = `Errore: ${errorMsg}`;
+            }
+
+            this.showValidationError(userMessage);
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Finish';
+                submitBtn.textContent = 'Crea';
             }
         }
     }
@@ -509,9 +551,9 @@ class PollCreator {
                 <div class="w-16 h-16 bg-emerald rounded-full flex items-center justify-center mx-auto mb-4">
                     <span class="text-white text-2xl">✓</span>
                 </div>
-                <h3 class="font-cinzel text-2xl font-bold text-forest mb-2">Campaign Created!</h3>
-                <p class="text-gray-600 mb-4">Your scheduling poll has been created and invitations sent to players.</p>
-                <p class="text-sm text-gray-500">Redirecting to management dashboard...</p>
+                <h3 class="font-cinzel text-2xl font-bold text-forest mb-2">Campagna Creata!</h3>
+                <p class="text-gray-600 mb-4">Il tuo sondaggio è stato creato e gli inviti sono stati inviati.</p>
+                <p class="text-sm text-gray-500">Reindirizzamento alla bacheca...</p>
             </div>
         `;
 
@@ -536,7 +578,7 @@ class PollCreator {
                     <span class="text-white text-sm">!</span>
                 </div>
                 <div class="flex-1">
-                    <div class="font-semibold text-sm">Validation Error</div>
+                    <div class="font-semibold text-sm">Errore di Validazione</div>
                     <div class="text-xs opacity-90 mt-1">${message}</div>
                 </div>
                 <button onclick="this.parentElement.parentElement.remove()" class="text-white/60 hover:text-white text-sm">×</button>

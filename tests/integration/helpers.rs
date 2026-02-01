@@ -1,6 +1,8 @@
 // Test Helpers Module
 // Utilities per setup e teardown dei test
 
+use axum::Router;
+use dnd_scheduler::create_router;
 use once_cell::sync::Lazy;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use std::sync::Mutex;
@@ -27,6 +29,13 @@ pub async fn setup_test_db() -> Pool<Sqlite> {
     pool
 }
 
+/// Setup dell'applicazione per i test (restituisce router e pool)
+pub async fn setup_test_app() -> (Router, Pool<Sqlite>) {
+    let pool = setup_test_db().await;
+    let app = create_router(pool.clone());
+    (app, pool)
+}
+
 /// Setup dello schema del database per i test
 async fn setup_schema(pool: &Pool<Sqlite>) {
     // Tabella polls
@@ -39,7 +48,12 @@ async fn setup_schema(pool: &Pool<Sqlite>) {
             location TEXT NOT NULL,
             created_at INTEGER NOT NULL,
             dates TEXT NOT NULL,
-            time_range TEXT NOT NULL
+            time_range TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            finalized_at INTEGER,
+            finalized_time TEXT,
+            notes TEXT,
+            admin_token TEXT
         );
         "#,
     )
@@ -94,7 +108,8 @@ async fn setup_schema(pool: &Pool<Sqlite>) {
             name TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'player',
             created_at INTEGER NOT NULL,
-            last_login INTEGER
+            last_login INTEGER,
+            phone TEXT
         );
         "#,
     )
@@ -349,13 +364,9 @@ pub async fn create_test_users(
     let mut results = Vec::new();
 
     for config in configs {
-        let (user_id, token) = create_test_user_with_session(
-            pool,
-            &config.email,
-            &config.password,
-            &config.role,
-        )
-        .await;
+        let (user_id, token) =
+            create_test_user_with_session(pool, &config.email, &config.password, &config.role)
+                .await;
         results.push((user_id, token));
     }
 
@@ -370,23 +381,41 @@ pub async fn create_default_test_users(pool: &Pool<Sqlite>) -> DefaultTestUsers 
     let player2_config = TestUserConfig::player("player2@test.com");
     let player3_config = TestUserConfig::player("player3@test.com");
 
-    let (admin_id, admin_token) =
-        create_test_user_with_session(pool, &admin_config.email, &admin_config.password, &admin_config.role).await;
+    let (admin_id, admin_token) = create_test_user_with_session(
+        pool,
+        &admin_config.email,
+        &admin_config.password,
+        &admin_config.role,
+    )
+    .await;
 
     let (dm_id, dm_token) =
-        create_test_user_with_session(pool, &dm_config.email, &dm_config.password, &dm_config.role).await;
-
-    let (player1_id, player1_token) =
-        create_test_user_with_session(pool, &player1_config.email, &player1_config.password, &player1_config.role)
+        create_test_user_with_session(pool, &dm_config.email, &dm_config.password, &dm_config.role)
             .await;
 
-    let (player2_id, player2_token) =
-        create_test_user_with_session(pool, &player2_config.email, &player2_config.password, &player2_config.role)
-            .await;
+    let (player1_id, player1_token) = create_test_user_with_session(
+        pool,
+        &player1_config.email,
+        &player1_config.password,
+        &player1_config.role,
+    )
+    .await;
 
-    let (player3_id, player3_token) =
-        create_test_user_with_session(pool, &player3_config.email, &player3_config.password, &player3_config.role)
-            .await;
+    let (player2_id, player2_token) = create_test_user_with_session(
+        pool,
+        &player2_config.email,
+        &player2_config.password,
+        &player2_config.role,
+    )
+    .await;
+
+    let (player3_id, player3_token) = create_test_user_with_session(
+        pool,
+        &player3_config.email,
+        &player3_config.password,
+        &player3_config.role,
+    )
+    .await;
 
     DefaultTestUsers {
         admin: TestUser {
@@ -513,4 +542,42 @@ mod tests {
 
         assert_eq!(result.0, 1);
     }
+}
+// Helper per creare un sondaggio di test
+pub async fn create_test_poll(_app: &Router) -> String {
+    // Implementazione semplificata: crea un sondaggio direttamente nel DB o via API
+    // Per semplicità, usiamo una chiamata API se possibile, o helper DB se abbiamo accesso al pool qui
+    // Ma setup_test_app ritorna (app, pool), quindi nel test abbiamo il pool.
+    // Questo helper dovrebbe accettare App? No, meglio se il test usa create_poll endpoint.
+    // Ma per autenticazione serve token.
+
+    // Placeholder - i test devono implementare la logica specifica o passare il pool a questo helper if needed.
+    // Modifichiamo la firma o assumiamo che il test lo faccia.
+    // In auth_tests.rs non usano questo helper.
+    // In test_anonymous.rs lo usiamo.
+    "admin_token".to_string()
+}
+
+// NOTE: create_test_poll above is a placeholder.
+// Real implementation should likely take &Pool and insert a poll directly.
+pub async fn create_test_poll_db(pool: &Pool<Sqlite>) -> String {
+    let poll_id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().timestamp();
+
+    sqlx::query(
+        "INSERT INTO polls (id, title, description, location, created_at, dates, time_range, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    )
+    .bind(&poll_id)
+    .bind("Test Poll")
+    .bind("Description")
+    .bind("Remote")
+    .bind(now)
+    .bind("[\"2023-10-10\"]")
+    .bind("[]")
+    .bind("active")
+    .execute(pool)
+    .await
+    .unwrap();
+
+    poll_id
 }

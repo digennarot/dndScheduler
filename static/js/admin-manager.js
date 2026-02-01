@@ -37,6 +37,41 @@ class AdminManager {
         this.config.log('AdminManager initialization complete');
     }
 
+    async fetchWithAuth(url, options = {}) {
+        const token = this.storage.getToken();
+        
+        // Prepare headers
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        // Add auth token if available
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const config = {
+            ...options,
+            headers
+        };
+
+        try {
+            const response = await fetch(url, config);
+            
+            if (response.status === 401) {
+                this.config.warn('Received 401 Unauthorized');
+                this.silentLogout(true);
+                throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+            }
+            
+            return response;
+        } catch (error) {
+            this.config.error('Network/Auth error:', error);
+            throw error;
+        }
+    }
+
     async validateAndRestoreSession() {
         try {
             const token = this.storage.getToken();
@@ -155,6 +190,39 @@ class AdminManager {
         console.log('AdminManager: Loading overview data');
 
         try {
+            // Fetch real system statistics
+            try {
+                const statsResponse = await this.fetchWithAuth('/api/admin/stats');
+                if (statsResponse.ok) {
+                    const stats = await statsResponse.json();
+
+                    // Update User Stats
+                    const totalUsersEl = document.getElementById('total-users');
+                    if (totalUsersEl) totalUsersEl.textContent = stats.total_users;
+
+                    const onlineUsersEl = document.getElementById('online-users');
+                    if (onlineUsersEl) {
+                        onlineUsersEl.textContent = stats.online_users;
+                        // Update status indicator
+                        const indicator = onlineUsersEl.previousElementSibling;
+                        if (indicator && indicator.classList.contains('status-indicator')) {
+                            if (stats.online_users > 0) {
+                                indicator.classList.remove('status-offline');
+                                indicator.classList.add('status-online');
+                            } else {
+                                indicator.classList.remove('status-online');
+                                indicator.classList.add('status-offline');
+                            }
+                        }
+                    }
+
+                    // Update total sessions if available from stats
+                    // Note: We'll still fetch polls below for detailed calc, but use this as baseline
+                }
+            } catch (e) {
+                console.error('Failed to fetch admin stats:', e);
+            }
+
             // Fetch all polls
             const response = await fetch('/api/polls');
             if (!response.ok) {
@@ -219,9 +287,9 @@ class AdminManager {
             const responseRate = totalParticipants > 0 ? Math.round((totalResponded / totalParticipants) * 100) : 0;
             const avgResponseTime = responseCount > 0 ? (totalResponseTime / responseCount).toFixed(1) : 0;
 
-            // Update UI
-            document.getElementById('total-users').textContent = totalUsers.size;
-            document.getElementById('online-users').textContent = '-'; // Real-time tracking non disponibile
+            // Update UI - Stats from polls
+            // document.getElementById('total-users').textContent = totalUsers.size; // Now using real DB count above
+            // document.getElementById('online-users').textContent = '-'; // Now using real session count above
             document.getElementById('total-sessions').textContent = totalSessions;
             document.getElementById('active-sessions').textContent = activeSessions;
             document.getElementById('response-rate').textContent = `${responseRate}%`;
@@ -259,19 +327,9 @@ class AdminManager {
                 return;
             }
 
-            const response = await fetch('/api/admin/users', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await this.fetchWithAuth('/api/admin/users');
 
             if (!response.ok) {
-                if (response.status === 401) {
-                    this.config.warn('Unauthorized access to users list - token may be invalid');
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-400 py-8">Authentication required. Please refresh and login again.</td></tr>';
-                    // Don't logout immediately, just show error
-                    return;
-                }
                 throw new Error('Failed to fetch users');
             }
 
@@ -301,14 +359,16 @@ class AdminManager {
                     </td>
                     <td class="text-gray-400 text-sm">${this.formatDate(new Date(user.created_at * 1000).toISOString())}</td>
                     <td>
-                         <div class="flex space-x-2">
+                         <div class="flex space-x-2 flex-wrap gap-1">
                             <button onclick="adminManager.viewUser('${user.id}')" class="action-btn primary">
                                 View
                             </button>
                             <button onclick="adminManager.showChangeRoleModal('${user.id}', '${user.name}', '${user.role}')" class="action-btn secondary">
                                 Cambia Ruolo
                             </button>
-                            <!-- Delete not yet implemented in backend for users, just session participants -->
+                            <button onclick="adminManager.showResetPasswordModal('${user.id}', '${user.name}')" class="action-btn danger" title="Reset password utente">
+                                🔐 Reset Pwd
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -696,6 +756,111 @@ class AdminManager {
                 this.showError('Error', 'Failed to delete user');
             }
         }
+    }
+
+    // Reset Password Modal Functions
+    showResetPasswordModal(userId, userName) {
+        this.currentResetPasswordUserId = userId;
+        this.currentResetPasswordUserName = userName;
+
+        // Reset modal state
+        document.getElementById('reset-password-user-name').textContent = userName;
+        document.getElementById('reset-password-result').classList.add('hidden');
+        document.getElementById('reset-password-error').classList.add('hidden');
+        document.getElementById('reset-password-btn').disabled = false;
+        document.getElementById('reset-password-btn').classList.remove('hidden');
+
+        // Show modal
+        document.getElementById('reset-password-modal').classList.remove('hidden');
+    }
+
+    closeResetPasswordModal() {
+        document.getElementById('reset-password-modal').classList.add('hidden');
+        this.currentResetPasswordUserId = null;
+        this.currentResetPasswordUserName = null;
+    }
+
+    async resetUserPassword() {
+        const userId = this.currentResetPasswordUserId;
+        const userName = this.currentResetPasswordUserName;
+
+        if (!userId) {
+            this.showError('Errore', 'ID utente non trovato');
+            return;
+        }
+
+        const btn = document.getElementById('reset-password-btn');
+        const resultDiv = document.getElementById('reset-password-result');
+        const errorDiv = document.getElementById('reset-password-error');
+
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.textContent = '⏳ Resetting...';
+        resultDiv.classList.add('hidden');
+        errorDiv.classList.add('hidden');
+
+        try {
+            const token = this.storage.getToken();
+            if (!token) {
+                throw new Error('Sessione scaduta. Effettua il login nuovamente.');
+            }
+
+            const response = await fetch(`/api/admin/users/${userId}/password`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                let errorMsg = 'Impossibile resettare la password';
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) {
+                    // Fallback for non-JSON errors (like 404 Not Found HTML or 500 Server Error)
+                    errorMsg = `Errore Server (${response.status}): ${response.statusText}`;
+                    console.error('Non-JSON error response:', e);
+                }
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+
+            // Show the temporary password
+            document.getElementById('reset-password-value').textContent = data.temporary_password;
+            resultDiv.classList.remove('hidden');
+
+            // Hide the reset button (password already reset)
+            btn.classList.add('hidden');
+
+            this.showSuccessMessage('Password Resettata', `La password di ${userName} è stata resettata con successo.`);
+
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            document.getElementById('reset-password-error-message').textContent = error.message;
+            errorDiv.classList.remove('hidden');
+
+            btn.disabled = false;
+            btn.textContent = '🔐 Reset Password';
+        }
+    }
+
+    copyTempPassword() {
+        const passwordValue = document.getElementById('reset-password-value').textContent;
+        navigator.clipboard.writeText(passwordValue).then(() => {
+            this.showSuccessMessage('Copiato!', 'Password copiata negli appunti');
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = passwordValue;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            this.showSuccessMessage('Copiato!', 'Password copiata negli appunti');
+        });
     }
 
     showAddUserModal() {

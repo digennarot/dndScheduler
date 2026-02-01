@@ -80,9 +80,9 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <!-- Welcome Section -->
         <div class="mb-8">
-            <h2 class="font-cinzel text-3xl font-bold text-forest mb-2">Welcome back, <span
+            <h2 class="font-cinzel text-3xl font-bold text-forest mb-2">Bentornato, <span
                     id="user-name">Avventuriero</span>!</h2>
-            <p class="text-gray-600">Manage your D&D sessions and availability</p>
+            <p class="text-gray-600">Gestisci le tue sessioni D&D e la tua disponibilità</p>
         </div>
 
         <!-- Quick Stats -->
@@ -131,13 +131,13 @@
             <div id="sessions-list" class="space-y-4">
                 <!-- Le sessioni saranno caricate qui -->
                 <div class="text-center py-8 text-gray-500">
-                    <p>Loading your sessions...</p>
+                    <p>Caricamento sessioni...</p>
                 </div>
             </div>
         </div>
 
         <!-- Quick Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="quick-actions-grid">
             <a href="/participate.html"
                 class="bg-gradient-to-br from-forest to-emerald text-white rounded-xl shadow-lg mystical-glow p-6 text-center hover:scale-105 transition-transform">
                 <div class="text-4xl mb-2">🎯</div>
@@ -151,21 +151,77 @@
                 <h4 class="font-cinzel text-xl font-bold mb-2">Impostazioni Profilo</h4>
                 <p class="text-white/80">Gestisci il tuo account e le preferenze</p>
             </a>
+
+            <!-- DM Only Actions (Hidden by default) -->
+            <a href="/create-poll.html" id="create-campaign-btn"
+                class="hidden bg-gradient-to-br from-dnd-gold to-yellow-600 text-white rounded-xl shadow-lg mystical-glow p-6 text-center hover:scale-105 transition-transform">
+                <div class="text-4xl mb-2">📜</div>
+                <h4 class="font-cinzel text-xl font-bold mb-2">Crea Nuova Campagna</h4>
+                <p class="text-white/80">Organizza una nuova avventura</p>
+            </a>
         </div>
     </div>
 
     <script src="js/nav-protection.js"></script>
+    <script src="js/session-manager.js?v=5"></script>
     <script src="js/foundry-config.js"></script>
 
 
-    <script src="js/auth.js"></script>
+    <script src="js/auth-utils.js?v=3"></script>
     <script>
-        // Require authentication
-        window.authManager.requireAuth('/dashboard.html');
+        // Initialize dashboard - require authentication first
+        async function initDashboard() {
+            console.log('🚀 [DASHBOARD] Starting initialization...');
+            console.log('🔍 [DASHBOARD] Checking localStorage...');
+            console.log('   Token:', localStorage.getItem('authToken') ? 'EXISTS (length: ' + localStorage.getItem('authToken').length + ')' : 'NOT FOUND');
+            console.log('   User:', localStorage.getItem('currentUser') ? 'EXISTS' : 'NOT FOUND');
 
-        // Update user name
-        if (window.authManager.user) {
-            document.getElementById('user-name').textContent = window.authManager.user.name;
+            if (!window.authManager) {
+                console.error('❌ [DASHBOARD] authManager not found!');
+                return;
+            }
+
+            console.log('✅ [DASHBOARD] authManager found, calling requireAuth...');
+
+            // Require authentication - AWAIT the result
+            const isAuthenticated = await window.authManager.requireAuth('/dashboard.html');
+
+            console.log('📊 [DASHBOARD] requireAuth returned:', isAuthenticated);
+
+            if (!isAuthenticated) {
+                console.log('❌ [DASHBOARD] Authentication failed, will redirect...');
+                return; // Will be redirected by requireAuth
+            }
+
+            console.log('✅ [DASHBOARD] User authenticated successfully!');
+            console.log('👤 [DASHBOARD] Current user:', window.authManager.user);
+
+            // Update user name
+            if (window.authManager.user) {
+                document.getElementById('user-name').textContent = window.authManager.user.name;
+                console.log('✅ [DASHBOARD] User name updated in UI');
+
+                // Check for DM role and show create button
+                if (window.authManager.user.role === 'dm') {
+                    console.log('🎲 [DASHBOARD] User is DM, showing create campaign button');
+                    const createBtn = document.getElementById('create-campaign-btn');
+                    const actionsGrid = document.getElementById('quick-actions-grid');
+
+                    if (createBtn) {
+                        createBtn.classList.remove('hidden');
+                        // Update grid layout to 3 columns if on larger screens
+                        if (actionsGrid) {
+                            actionsGrid.classList.remove('md:grid-cols-2');
+                            actionsGrid.classList.add('md:grid-cols-3');
+                        }
+                    }
+                }
+            }
+
+            // Load sessions
+            console.log('📋 [DASHBOARD] Loading user sessions...');
+            await loadUserSessions();
+            console.log('✅ [DASHBOARD] Dashboard fully loaded!');
         }
 
         // Load user's sessions
@@ -191,8 +247,12 @@
                         const pollData = await pollResponse.json();
 
                         // Check if user is a participant
+                        // Check if user is a participant or organizer
                         // Handle potential missing participants array
-                        if (pollData && pollData.participants && pollData.participants.some(p => p.email === userEmail)) {
+                        const isParticipant = pollData && pollData.participants && pollData.participants.some(p => p.email === userEmail);
+                        const isOrganizer = pollData && pollData.organizer_id === window.authManager.user.id;
+
+                        if (isParticipant || isOrganizer) {
                             return pollData;
                         }
                     } catch (e) {
@@ -232,7 +292,7 @@
                         <div class="text-center py-8 text-gray-500">
                             <p class="mb-4">Non hai ancora partecipato a nessuna sessione.</p>
                             <a href="/participate.html" class="text-forest font-semibold hover:text-amber transition-colors">
-                                Join your first session →
+                                Partecipa alla tua prima sessione →
                             </a>
                         </div>
                     `;
@@ -240,6 +300,8 @@
                     sessionsList.innerHTML = userSessions.map(session => {
                         const participant = session.participants.find(p => p.email === userEmail);
                         const hasSubmitted = participant && session.availability && session.availability.some(a => a.participant_id === participant.id);
+
+                        const isDM = window.authManager.user.role === 'dm';
 
                         return `
                             <div class="border border-gray-200 rounded-lg p-4 hover:border-amber transition-colors">
@@ -249,17 +311,23 @@
                                         <p class="text-gray-600 text-sm mt-1">${(session.poll.description || '').split('\n')[0]}</p>
                                         <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
                                             <span>📍 ${session.poll.location || 'Online'}</span>
-                                            <span>👥 ${session.participants.length} participants</span>
+                                            <span>👥 ${session.participants.length} partecipanti</span>
                                         </div>
                                     </div>
                                     <div class="flex flex-col items-end space-y-2">
                                         ${hasSubmitted
-                                ? '<span class="px-3 py-1 bg-emerald/10 text-emerald text-xs font-medium rounded-full">✅ Submitted</span>'
+                                ? '<span class="px-3 py-1 bg-emerald/10 text-emerald text-xs font-medium rounded-full">✅ Inviato</span>'
                                 : '<span class="px-3 py-1 bg-amber/10 text-amber text-xs font-medium rounded-full">⏳ In Attesa</span>'
                             }
-                                        <a href="/participate.html?session=${session.poll.id}" class="text-forest hover:text-amber transition-colors text-sm font-medium">
-                                            ${hasSubmitted ? 'Update' : 'Invia'} Availability →
-                                        </a>
+                                        <div class="flex space-x-2">
+                                            ${isDM ? `
+                                            <a href="/manage.html?poll=${session.poll.id}&action=edit" class="text-amber hover:text-amber-700 transition-colors text-sm font-medium">
+                                                ✏️ Modifica
+                                            </a>` : ''}
+                                            <a href="/participate.html?session=${session.poll.id}" class="text-forest hover:text-amber transition-colors text-sm font-medium">
+                                                ${hasSubmitted ? 'Aggiorna' : 'Invia'} Disponibilità →
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -279,20 +347,9 @@
         }
 
         // Load sessions on page load
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Wait for auth to be verified (auth.js runs on DOMContentLoaded too, so we might need a small delay or event)
-            // Better approach: auth.js auto-verifies. Let's wait a moment or check if logged in.
-
-            // Note: auth.js redirects if not logged in within requireAuth.
-            // If we are here, we might still be waiting for user data to be parsed/verified if it's async.
-
-            // However, auth.js is synchronous in constructor for basic local storage check.
-            if (window.authManager && window.authManager.user) {
-                await loadUserSessions();
-            } else {
-                console.log('User not fully authenticated yet, waiting...');
-                // Optional: retry or let auth.js handle redirect
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 DOM loaded, starting authentication...');
+            initDashboard();
         });
     </script>
 </body>

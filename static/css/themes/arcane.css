@@ -1,0 +1,89 @@
+/* 
+ * Arcane Theme (The Ritual) 
+ * Defines the visual language of the D&D Scheduler.
+ */
+:root {
+    /* Chaos & Order (Colors) */
+    --color-void-bg: #0a0a0c;
+    /* Deepest background */
+    --color-void-surface: #15151a;
+    /* Card/Panel background */
+
+    --color-mana-primary: #2ecc71;
+    /* Availability (Emerald) */
+    --color-mana-dim: rgba(46, 204, 113, 0.2);
+    --color-mana-glow: rgba(46, 204, 113, 0.6);
+
+    --color-fire-busy: #e74c3c;
+    /* Busy/Eraser */
+    --color-gold-text: #f1c40f;
+    /* Highlights */
+    --color-text-main: #ecf0f1;
+    --color-text-muted: #95a5a6;
+
+    /* Spells (Dimensions) */
+    --grid-cell-height: 40px;
+    --grid-gap: 1px;
+}
+
+.magical-grid {
+    display: grid;
+    /* First column is 60px time labels, rest are equal fraction */
+    grid-template-columns: 60px repeat(var(--day-count, 7), 1fr);
+    gap: var(--grid-gap);
+    background-color: var(--color-void-bg);
+    /* Gap shows through as borders */
+    border: 1px solid var(--color-void-surface);
+    user-select: none;
+    /* Critical for drag interaction */
+    touch-action: none;
+    /* Critical for mobile scroll prevention */
+    overflow: auto;
+    max-height: 80vh;
+    position: relative;
+}
+
+/* Sticky Headers */
+.grid-header-day {
+    position: sticky;
+    top: 0;
+    background-color: var(--color-void-surface);
+    color: var(--color-gold-text);
+    z-index: 10;
+    padding: 10px;
+    text-align: center;
+    border-bottom: 2px solid var(--color-mana-dim);
+}
+
+.grid-label-time {
+    position: sticky;
+    left: 0;
+    background-color: var(--color-void-surface);
+    color: var(--color-text-muted);
+    z-index: 20;
+    /* Higher than day headers if overlapping corner */
+    text-align: right;
+    padding-right: 10px;
+    font-size: 0.8rem;
+    transform: translateY(-50%);
+    /* Center align with line */
+}
+
+.grid-cell {
+    height: var(--grid-cell-height);
+    background-color: transparent;
+    /* Shows Void behind */
+    border: 1px solid var(--color-void-surface);
+    /* Subtle grid lines */
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.grid-cell:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.grid-cell[data-state="available"] {
+    background-color: var(--color-mana-glow);
+    box-shadow: 0 0 10px var(--color-mana-dim);
+}

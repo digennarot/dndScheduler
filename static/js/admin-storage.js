@@ -27,7 +27,7 @@ class AdminStorage {
         }
 
         // Validate ID format (should be UUID or similar)
-        if (typeof data.id !== 'string' || data.id.length < 10) {
+        if (typeof data.id !== 'string' || data.id.length < 1) {
             return false;
         }
 

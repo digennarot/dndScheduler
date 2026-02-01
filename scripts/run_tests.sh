@@ -51,7 +51,7 @@ case "$COMMAND" in
     unit)
         echo -e "${GREEN}Esecuzione dei test unitari...${NC}"
         echo ""
-        cargo test --lib -- --nocapture
+        cargo test --bin dnd_scheduler -- --nocapture
         ;;
 
     integration)
