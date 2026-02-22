@@ -12,9 +12,9 @@ use serde::Serialize;
 use uuid::Uuid;
 
 // Error response for JSON
-#[derive(Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct ErrorResponse {
-    error: String,
+    pub error: String,
 }
 
 // Helper to create JSON error responses
@@ -252,35 +252,23 @@ pub async fn register(
     // Apply to Projection (Read-Your-Writes)
     users_projection.apply(event);
 
-    // PROJECTION (Sync Dual Write): Update SQL Read Model for FK constraints
-    if let Err(e) = sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&user_id)
-    .bind(&payload.email)
-    .bind(&password_hash)
-    .bind(&sanitized_name)
-    .bind(&default_role)
-    .bind(now)
-    .bind(now) // Last login = created_at
-    .execute(&pool)
-    .await
-    {
-        // Check for Unique Constraint Violation (SQLite code 2067)
-        if let Some(db_err) = e.as_database_error() {
-            if let Some(code) = db_err.code() {
-                if code == "2067" { // SQLite Unique Violation
-                     tracing::warn!("Registration constraint violation for {}: User exists in Read Model but not Projection/Redb.", payload.email);
-                     return Err(json_error(StatusCode::CONFLICT, "Email already registered"));
-                }
-            }
-        }
+    // PROJECTION (Sync Dual Write): Update Read Model for FK constraints
+    let new_user = User {
+        id: user_id.clone(),
+        email: payload.email.clone(),
+        password_hash: password_hash.clone(),
+        name: sanitized_name.clone(),
+        role: default_role.clone(),
+        created_at: now,
+        last_login: Some(now), // Last login = created_at
+        phone: payload.phone.clone(),
+        consent_marketing: false,
+        consent_analytics: false,
+        privacy_policy_accepted_at: None,
+    };
 
+    if let Err(e) = crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &new_user) {
         tracing::error!("Failed to update users table projection: {}", e);
-        // We technically could fail here, but event is persisted.
-        // However, session creation will fail if we don't succeed.
-        // So we should probably return error, or retry.
-        // For MVP, return error (inconsistency risk, but manageable).
         return Err(json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user projection"));
     }
 
@@ -296,31 +284,26 @@ pub async fn register(
     )
     .await;
 
-    // Create session (Still in SQL for now)
-    let session_id = Uuid::new_v4().to_string();
+    // Create session
     let session_token = Uuid::new_v4().to_string();
-    let expires_at =
-        match Utc::now().checked_add_signed(chrono::Duration::hours(SESSION_DURATION_HOURS)) {
-            Some(time) => time.timestamp(),
-            None => {
-                return Err(json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to calculate expiration",
-                ));
-            }
-        };
+    let expires_at = Utc::now()
+        .checked_add_signed(chrono::Duration::hours(SESSION_DURATION_HOURS))
+        .ok_or(json_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to calculate expiration",
+        ))?
+        .timestamp();
 
-    sqlx::query(
-        "INSERT INTO user_sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&session_id)
-    .bind(&user_id)
-    .bind(&session_token)
-    .bind(expires_at)
-    .bind(now)
-    .execute(&pool)
-    .await
-    .map_err(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session"))?;
+    let session = crate::core::models::UserSession {
+        id: Uuid::new_v4().to_string(),
+        user_id: user_id.clone(),
+        token: session_token.clone(),
+        expires_at,
+        created_at: now,
+    };
+
+    crate::db::queries::admin_repo::SessionRepo::create_user_session(&pool, &session)
+        .map_err(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session"))?;
 
     // Send welcome email (fire and forget)
     let email_for_task = payload.email.clone();
@@ -393,14 +376,10 @@ pub async fn login(
 
     // CHECK ACCOUNT LOCK STATUS
     let now = Utc::now().timestamp();
-    let lock_status: Option<(i64,)> =
-        sqlx::query_as("SELECT locked_until FROM account_locks WHERE email = ?")
-            .bind(&payload.email)
-            .fetch_optional(&pool)
-            .await
-            .unwrap_or(None);
+    let lock_status = crate::db::queries::auth_repo::AuthRepo::get_account_lock(&pool, &payload.email)
+        .unwrap_or(None);
 
-    if let Some((locked_until,)) = lock_status {
+    if let Some(locked_until) = lock_status {
         if locked_until > now {
             let wait_seconds = locked_until - now;
             crate::audit::log_audit(
@@ -419,11 +398,7 @@ pub async fn login(
             ));
         } else {
             // Lock expired, remove it
-            sqlx::query("DELETE FROM account_locks WHERE email = ?")
-                .bind(&payload.email)
-                .execute(&pool)
-                .await
-                .ok();
+            let _ = crate::db::queries::auth_repo::AuthRepo::delete_account_lock(&pool, &payload.email);
         }
     }
 
@@ -441,16 +416,13 @@ pub async fn login(
 
     // Handle Login Attempt
     let ip_address = "unknown"; // In a real app, extract from request headers
-    sqlx::query(
-        "INSERT INTO login_attempts (email, attempt_time, success, ip_address) VALUES (?, ?, ?, ?)",
-    )
-    .bind(&payload.email)
-    .bind(now)
-    .bind(password_valid)
-    .bind(ip_address)
-    .execute(&pool)
-    .await
-    .ok();
+    let _ = crate::db::queries::auth_repo::AuthRepo::record_login_attempt(
+        &pool,
+        &payload.email,
+        now,
+        password_valid,
+        ip_address,
+    );
 
     if !password_valid {
         crate::audit::log_audit(
@@ -466,23 +438,21 @@ pub async fn login(
 
         // Check for too many failures in last 5 minutes
         let window_start = now - (5 * 60);
-        let failures: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = FALSE AND attempt_time > ?")
-            .bind(&payload.email)
-            .bind(window_start)
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(0);
+        let failures = crate::db::queries::auth_repo::AuthRepo::count_failed_attempts(
+            &pool,
+            &payload.email,
+            window_start,
+        ).unwrap_or(0);
 
         if failures >= 10 {
             let lock_duration = 5 * 60; // 5 minutes
             let locked_until = now + lock_duration;
-            sqlx::query("INSERT OR REPLACE INTO account_locks (email, locked_until, reason) VALUES (?, ?, ?)")
-                .bind(&payload.email)
-                .bind(locked_until)
-                .bind("Too many failed login attempts")
-                .execute(&pool)
-                .await
-                .ok();
+            let _ = crate::db::queries::auth_repo::AuthRepo::lock_account(
+                &pool,
+                &payload.email,
+                locked_until,
+                "Too many failed login attempts",
+            );
 
             crate::audit::log_audit(
                 &pool,
@@ -525,36 +495,29 @@ pub async fn login(
     }
 
     // Heal Read Model if needed (Self-Healing)
-    // Check if user exists in SQLite to avoid FK violation on session creation
-    // This handles cases where Redb has the user but SQLite (Read Model) was wiped or desynced
-    let user_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)")
-        .bind(&user.id)
-        .fetch_one(&pool)
-        .await
-        .unwrap_or(false);
-
-    if !user_exists {
+    let existing = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user.id).unwrap_or(None);
+    if existing.is_none() {
         tracing::warn!(
-            "Healing Read Model: User {} exists in Event Store but not in SQLite. Restoring...",
+            "Healing Read Model: User {} exists in Event Store but not in Redb. Restoring...",
             user.email
         );
-        sqlx::query(
-            "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&user.id)
-        .bind(&user.email)
-        .bind(&user.password_hash)
-        .bind(&user.name)
-        .bind(&user.role)
-        .bind(user.created_at)
-        .bind(user.last_login.unwrap_or(user.created_at))
-        .execute(&pool)
-        .await
-        .ok();
+        let healed_user = User {
+            id: user.id.clone(),
+            email: user.email.clone(),
+            password_hash: user.password_hash.clone(),
+            name: user.name.clone(),
+            role: user.role.clone(),
+            created_at: user.created_at,
+            last_login: user.last_login.or(Some(user.created_at)),
+            phone: user.phone.clone(),
+            consent_marketing: user.consent_marketing,
+            consent_analytics: user.consent_analytics,
+            privacy_policy_accepted_at: user.privacy_policy_accepted_at,
+        };
+        let _ = crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &healed_user);
     }
 
-    // Create session (SQL)
-    let session_id = Uuid::new_v4().to_string();
+    // Create session
     let session_token = Uuid::new_v4().to_string();
     let expires_at = Utc::now()
         .checked_add_signed(chrono::Duration::hours(SESSION_DURATION_HOURS))
@@ -564,22 +527,21 @@ pub async fn login(
         ))?
         .timestamp();
 
-    sqlx::query(
-        "INSERT INTO user_sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&session_id)
-    .bind(&user.id)
-    .bind(&session_token)
-    .bind(expires_at)
-    .bind(now)
-    .execute(&pool)
-    .await
-    .map_err(|_| {
-        json_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Failed to create session",
-        )
-    })?;
+    let session = crate::core::models::UserSession {
+        id: Uuid::new_v4().to_string(),
+        user_id: user.id.clone(),
+        token: session_token.clone(),
+        expires_at,
+        created_at: now,
+    };
+
+    crate::db::queries::admin_repo::SessionRepo::create_user_session(&pool, &session)
+        .map_err(|_| {
+            json_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create session",
+            )
+        })?;
 
     // Audit log success
     crate::audit::log_audit(
@@ -649,31 +611,28 @@ pub async fn login_google(
         }
         users_projection.apply(event);
 
-        // Update last login in SQLite
-        // Also Healing Read Model if needed (Self-Healing)
-        let rows_affected = sqlx::query("UPDATE users SET last_login = ? WHERE id = ?")
-            .bind(now)
-            .bind(&user_view.id)
-            .execute(&pool)
-            .await
-            .map(|r| r.rows_affected())
-            .unwrap_or(0);
-
-        if rows_affected == 0 {
-            tracing::warn!("Healing Read Model (Google Login): User {} exists in Event Store but not in SQLite. Restoring...", user_view.email);
-            sqlx::query(
-                "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            )
-            .bind(&user_view.id)
-            .bind(&user_view.email)
-            .bind(&user_view.password_hash)
-            .bind(&user_view.name)
-            .bind(&user_view.role)
-            .bind(user_view.created_at)
-            .bind(now)
-            .execute(&pool)
-            .await
-            .ok();
+        // Healing Read Model if needed (Self-Healing)
+        let existing = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user_view.id).unwrap_or(None);
+        if existing.is_none() {
+            tracing::warn!("Healing Read Model (Google Login): User {} exists in Event Store but not in Redb. Restoring...", user_view.email);
+            let healed_user = User {
+                id: user_view.id.clone(),
+                email: user_view.email.clone(),
+                password_hash: user_view.password_hash.clone(),
+                name: user_view.name.clone(),
+                role: user_view.role.clone(),
+                created_at: user_view.created_at,
+                last_login: Some(now),
+                phone: user_view.phone.clone(),
+                consent_marketing: user_view.consent_marketing,
+                consent_analytics: user_view.consent_analytics,
+                privacy_policy_accepted_at: user_view.privacy_policy_accepted_at,
+            };
+            let _ = crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &healed_user);
+        } else {
+            let mut u = existing.unwrap();
+            u.last_login = Some(now);
+            let _ = crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &u);
         }
 
         // Convert to User struct for response (Simplified)
@@ -686,23 +645,22 @@ pub async fn login_google(
             created_at: user_view.created_at,
             last_login: Some(now),
             phone: user_view.phone.clone(),
+            consent_marketing: user_view.consent_marketing,
+            consent_analytics: user_view.consent_analytics,
+            privacy_policy_accepted_at: user_view.privacy_policy_accepted_at,
         }
     } else {
         // User does not exist in Projection (Event Store)
-        // Check if exists in Legacy SQLite (Migration gap)
-        let legacy_user: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = ?")
-            .bind(&email)
-            .fetch_optional(&pool)
-            .await
-            .unwrap_or(None);
+        // Check if exists in Read Model (Redb)
+        let legacy_user = crate::db::queries::user_repo::UserRepo::find_by_email(&pool, &email).unwrap_or(None);
 
-        let (user_id, is_new, password_hash, role, created_at) = if let Some(lu) = legacy_user {
-            // User exists in SQL but not Redb. Use their ID/Data.
+        let (user_id, _is_new, password_hash, role, created_at, _phone) = if let Some(lu) = legacy_user {
+            // User exists in Redb but not Event Store projection. Adopt them.
             tracing::info!(
                 "JIT Migration: Adopting legacy user {} for Event Store.",
                 email
             );
-            (lu.id, false, lu.password_hash, lu.role, lu.created_at)
+            (lu.id, false, lu.password_hash, lu.role, lu.created_at, lu.phone)
         } else {
             // Truly new user
             (
@@ -711,6 +669,7 @@ pub async fn login_google(
                 "GOOGLE_OAUTH_USER".to_string(),
                 "player".to_string(),
                 Utc::now().timestamp(),
+                None,
             )
         };
 
@@ -743,29 +702,23 @@ pub async fn login_google(
         }
         users_projection.apply(event.clone());
 
-        // Dual Write to SQLite
-        if is_new {
-            sqlx::query(
-                "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            )
-            .bind(&user_id)
-            .bind(&email)
-            .bind(&password_hash)
-            .bind(&sanitized_name)
-            .bind(&role)
-            .bind(created_at)
-            .bind(now) // last_login = now
-            .execute(&pool)
-            .await
-            .map_err(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user"))?;
-        } else {
-            // Just update last_login
-            sqlx::query("UPDATE users SET last_login = ? WHERE id = ?")
-                .bind(now)
-                .bind(&user_id)
-                .execute(&pool)
-                .await
-                .ok();
+        // Dual Write to Redb
+        let new_user = User {
+            id: user_id.clone(),
+            email: email.clone(),
+            password_hash: password_hash.clone(),
+            name: sanitized_name.clone(),
+            role: role.clone(),
+            created_at: created_at,
+            last_login: Some(now),
+            phone: None,
+            consent_marketing: false,
+            consent_analytics: false,
+            privacy_policy_accepted_at: None,
+        };
+        if let Err(e) = crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &new_user) {
+            tracing::error!("Failed to update users table projection: {}", e);
+            return Err(json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user projection"));
         }
 
         // Audit Log
@@ -800,6 +753,9 @@ pub async fn login_google(
             created_at: created_at,
             last_login: Some(now),
             phone: None,
+            consent_marketing: false,
+            consent_analytics: false,
+            privacy_policy_accepted_at: None,
         }
     };
 
@@ -819,24 +775,12 @@ pub async fn logout(
     State(pool): State<DbPool>,
     Path(token): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    // Get user_id before deleting session for logging
-    let user_id: Option<String> =
-        sqlx::query_scalar("SELECT user_id FROM user_sessions WHERE token = ?")
-            .bind(&token)
-            .fetch_optional(&pool)
-            .await
-            .unwrap_or(None);
+    let sess = crate::db::queries::admin_repo::SessionRepo::get_user_session(&pool, &token)
+        .unwrap_or(None);
+        
+    let user_id = sess.map(|s| s.user_id);
 
-    sqlx::query("DELETE FROM user_sessions WHERE token = ?")
-        .bind(&token)
-        .execute(&pool)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to logout".to_string(),
-            )
-        })?;
+    let _ = crate::db::queries::admin_repo::SessionRepo::delete_user_session_by_token(&pool, &token);
 
     if let Some(uid) = user_id {
         crate::audit::log_audit(
@@ -881,54 +825,16 @@ pub async fn delete_account(
 ) -> Result<StatusCode, (StatusCode, String)> {
     let user = auth_user.0;
 
-    // Delete user's sessions first (foreign key)
-    sqlx::query("DELETE FROM user_sessions WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to delete sessions".to_string(),
-            )
-        })?;
-
-    // Delete user's availability entries
-    sqlx::query("DELETE FROM availability WHERE participant_id IN (SELECT id FROM participants WHERE user_id = ?)")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok(); // Ignore if no entries
-
-    // Delete user's participant entries
-    sqlx::query("DELETE FROM participants WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
-
-    // Delete user's activities
-    sqlx::query("DELETE FROM activities WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
+    crate::db::queries::user_repo::UserRepo::delete_user_all_data(&pool, &user.id).map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to clean up user data".to_string(),
+    ))?;
 
     // Finally, delete the user
-    let result = sqlx::query("DELETE FROM users WHERE id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to delete account".to_string(),
-            )
-        })?;
-
-    if result.rows_affected() == 0 {
-        return Err((StatusCode::NOT_FOUND, "User not found".to_string()));
-    }
+    crate::db::queries::user_repo::UserRepo::delete(&pool, &user.id).map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to delete account".to_string(),
+    ))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -962,19 +868,13 @@ pub async fn update_profile(
         validate_email(email).map_err(|e| json_error(StatusCode::BAD_REQUEST, e))?;
 
         // Check if email already exists (for a different user)
-        let existing: Option<String> =
-            sqlx::query_scalar("SELECT id FROM users WHERE email = ? AND id != ?")
-                .bind(email)
-                .bind(&user.id)
-                .fetch_optional(&pool)
-                .await
-                .unwrap_or(None);
-
-        if existing.is_some() {
-            return Err(json_error(
-                StatusCode::CONFLICT,
-                "Email already in use by another account",
-            ));
+        if let Ok(Some(existing_user)) = crate::db::queries::user_repo::UserRepo::find_by_email(&pool, email) {
+            if existing_user.id != user.id {
+                return Err(json_error(
+                    StatusCode::CONFLICT,
+                    "Email already in use by another account",
+                ));
+            }
         }
     }
 
@@ -995,14 +895,13 @@ pub async fn update_profile(
     let new_phone = payload.phone.or(user.phone.clone());
     let role_changed = new_role != user.role;
 
-    sqlx::query("UPDATE users SET name = ?, email = ?, role = ?, phone = ? WHERE id = ?")
-        .bind(&new_name)
-        .bind(&new_email)
-        .bind(&new_role)
-        .bind(&new_phone)
-        .bind(&user.id)
-        .execute(&pool)
-        .await
+    let mut updated_user = user.clone();
+    updated_user.name = new_name.clone();
+    updated_user.email = new_email.clone();
+    updated_user.role = new_role.clone();
+    updated_user.phone = new_phone.clone();
+
+    crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &updated_user)
         .map_err(|_| {
             json_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1096,11 +995,9 @@ pub async fn change_password(
         .map_err(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to hash password"))?;
 
     // Update password
-    sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
-        .bind(&new_hash)
-        .bind(&user.id)
-        .execute(&pool)
-        .await
+    let mut updated_user = user.clone();
+    updated_user.password_hash = new_hash;
+    crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &updated_user)
         .map_err(|_| {
             json_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1109,11 +1006,7 @@ pub async fn change_password(
         })?;
 
     // Invalidate all other sessions (security best practice)
-    sqlx::query("DELETE FROM user_sessions WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
+    let _ = crate::db::queries::admin_repo::SessionRepo::delete_user_sessions(&pool, &user.id);
 
     // Log audit
     crate::audit::log_audit(
@@ -1146,10 +1039,7 @@ pub async fn validate_session(pool: &DbPool, token: &str) -> Result<User, (Statu
             .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
 
         // Find user by email
-        let user: User = sqlx::query_as("SELECT * FROM users WHERE email = ?")
-            .bind(&claims.email)
-            .fetch_optional(pool)
-            .await
+        let user = crate::db::queries::user_repo::UserRepo::find_by_email(pool, &claims.email)
             .map_err(|_| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -1170,10 +1060,7 @@ pub async fn validate_session(pool: &DbPool, token: &str) -> Result<User, (Statu
 
 async fn validate_db_session(pool: &DbPool, token: &str) -> Result<User, (StatusCode, String)> {
     // Get session
-    let session: UserSession = sqlx::query_as("SELECT * FROM user_sessions WHERE token = ?")
-        .bind(token)
-        .fetch_optional(pool)
-        .await
+    let session = crate::db::queries::admin_repo::SessionRepo::get_user_session(pool, token)
         .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1185,20 +1072,13 @@ async fn validate_db_session(pool: &DbPool, token: &str) -> Result<User, (Status
     // Check expiration
     let now = Utc::now().timestamp();
     if session.expires_at < now {
-        sqlx::query("DELETE FROM user_sessions WHERE id = ?")
-            .bind(&session.id)
-            .execute(pool)
-            .await
-            .ok();
+        let _ = crate::db::queries::admin_repo::SessionRepo::delete_user_session_by_token(pool, token);
 
         return Err((StatusCode::UNAUTHORIZED, "Session expired".to_string()));
     }
 
     // Get user
-    let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ?")
-        .bind(&session.user_id)
-        .fetch_optional(pool)
-        .await
+    let user = crate::db::queries::user_repo::UserRepo::find_by_id(pool, &session.user_id)
         .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1387,10 +1267,7 @@ pub async fn validate_admin_session(
     token: &str,
 ) -> Result<Admin, (StatusCode, String)> {
     // 1. Check user_sessions table
-    let session: UserSession = sqlx::query_as("SELECT * FROM user_sessions WHERE token = ?")
-        .bind(token)
-        .fetch_optional(pool)
-        .await
+    let session = crate::db::queries::admin_repo::SessionRepo::get_user_session(pool, token)
         .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1405,19 +1282,12 @@ pub async fn validate_admin_session(
     // 2. Check expiration
     let now = Utc::now().timestamp();
     if session.expires_at < now {
-        sqlx::query("DELETE FROM user_sessions WHERE id = ?")
-            .bind(&session.id)
-            .execute(pool)
-            .await
-            .ok();
+        let _ = crate::db::queries::admin_repo::SessionRepo::delete_user_session_by_token(pool, token);
         return Err((StatusCode::UNAUTHORIZED, "Session expired".to_string()));
     }
 
     // 3. Get User and Verify Role
-    let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ?")
-        .bind(&session.user_id)
-        .fetch_optional(pool)
-        .await
+    let user = crate::db::queries::user_repo::UserRepo::find_by_id(pool, &session.user_id)
         .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,

@@ -41,10 +41,13 @@ impl PollsProjection {
     }
 
     pub fn apply(&self, event: Event) {
+        // println!("DEBUG: Applying event: {:?}", event); // Commented out to avoid noise in prod, but needed for debug test
         let mut data = self.data.write().unwrap();
 
         match event {
             Event::V1PollCreated(e) => {
+                println!("DEBUG: Inserting poll to projection: {}", e.id);
+                // tracing::info!("DEBUG: Inserting poll to projection: {}", e.id);
                 let dates_json = serde_json::to_string(&e.dates).unwrap_or_default();
 
                 // For MVP Projections, defaults for missing fields
@@ -53,13 +56,8 @@ impl PollsProjection {
                     title: e.title,
                     description: e.description,
                     location: e.location,
-                    // We don't have created_at in V1 event? We should add it to event or use 0
-                    // Checking implementation: src/api/handlers/general.rs puts created_at in SQL
-                    // But V1PollCreated definition in mod.rs MISSES created_at!
-                    // This is a gap. For now use 0 or current time if we can't recover.
-                    // Ideally we fix the event definition, but that breaks compat if we had strict schema.
-                    // Let's assume 0 for now or todo fix.
-                    created_at: chrono::Utc::now().timestamp(),
+                    // Use zero as fallback timestamp
+                    created_at: 0,
                     dates: dates_json,
                     time_range: "{}".to_string(), // Default
                     status: "active".to_string(),
@@ -67,7 +65,35 @@ impl PollsProjection {
                     finalized_time: None,
                     notes: None,
                     organizer_id: None,    // Missing from V1
-                    recurrence_rule: None, // Missing from V1 (added in SQL but maybe not event?)
+                    recurrence_rule: None, // Missing from V1
+                };
+
+                let view = PollView {
+                    poll,
+                    participants: Vec::new(),
+                    availability: Vec::new(),
+                    instances: Vec::new(),
+                };
+                data.insert(e.id, view);
+            }
+            Event::V2PollCreated(e) => {
+                println!("DEBUG: Inserting poll to projection: {}", e.id);
+                let dates_json = serde_json::to_string(&e.dates).unwrap_or_default();
+
+                let poll = Poll {
+                    id: e.id.clone(),
+                    title: e.title,
+                    description: e.description,
+                    location: e.location,
+                    created_at: e.created_at,
+                    dates: dates_json,
+                    time_range: "{}".to_string(), // Default
+                    status: "active".to_string(),
+                    finalized_at: None,
+                    finalized_time: None,
+                    notes: None,
+                    organizer_id: None,
+                    recurrence_rule: None,
                 };
 
                 let view = PollView {
@@ -86,6 +112,7 @@ impl PollsProjection {
                         name: e.name,
                         email: e.email,
                         access_token: Some(e.access_token),
+                        user_id: None,
                     };
                     view.participants.push(p);
                 }
@@ -111,6 +138,12 @@ impl PollsProjection {
             Event::V1PollDeleted(e) => {
                 data.remove(&e.id);
             }
+            Event::V1ParticipantRemoved(e) => {
+                if let Some(view) = data.get_mut(&e.poll_id) {
+                    view.participants.retain(|p| p.id != e.participant_id);
+                    view.availability.retain(|a| a.participant_id != e.participant_id);
+                }
+            }
             _ => {}
         }
     }
@@ -121,33 +154,56 @@ impl PollsProjection {
         // using a write lock
         {
             let mut data = self.data.write().unwrap();
-            if let Event::V1VoteUpdated(e) = &event {
-                if let Some(view) = data.get_mut(poll_id) {
-                    // Find participant by email (fallback to name?)
-                    let participant = view.participants.iter().find(|p| {
-                        p.email.as_ref() == Some(&e.participant_email)
-                            || p.name == e.participant_name
-                    });
+            match &event {
+                Event::V1VoteUpdated(e) => {
+                    if let Some(view) = data.get_mut(poll_id) {
+                        let participant = view.participants.iter().find(|p| {
+                            p.email.as_deref() == Some(&e.participant_email)
+                                || p.name == e.participant_name
+                        });
 
-                    if let Some(p) = participant {
-                        let p_id = p.id.clone();
-                        // Remove old availability for this participant
-                        view.availability.retain(|a| a.participant_id != p_id);
-
-                        // Add new
-                        for entry in &e.availability {
-                            view.availability.push(Availability {
-                                id: None, // In-memory doesn't need DB ID
-                                poll_id: poll_id.to_string(),
-                                participant_id: p_id.clone(),
-                                date: entry.date.clone(),
-                                time_slot: entry.slot.clone(),
-                                status: entry.status.clone(),
-                            });
+                        if let Some(p) = participant {
+                            let p_id = p.id.clone();
+                            view.availability.retain(|a| a.participant_id != p_id);
+                            for entry in &e.availability {
+                                view.availability.push(Availability {
+                                    id: None,
+                                    poll_id: poll_id.to_string(),
+                                    participant_id: p_id.clone(),
+                                    date: entry.date.clone(),
+                                    time_slot: entry.slot.clone(),
+                                    status: entry.status.clone(),
+                                });
+                            }
                         }
                     }
+                    return;
                 }
-                return; // Handled
+                Event::V2VoteUpdated(e) => {
+                    if let Some(view) = data.get_mut(poll_id) {
+                        let participant = view.participants.iter().find(|p| {
+                            p.email == e.participant_email
+                                || p.name == e.participant_name
+                        });
+
+                        if let Some(p) = participant {
+                            let p_id = p.id.clone();
+                            view.availability.retain(|a| a.participant_id != p_id);
+                            for entry in &e.availability {
+                                view.availability.push(Availability {
+                                    id: None,
+                                    poll_id: poll_id.to_string(),
+                                    participant_id: p_id.clone(),
+                                    date: entry.date.clone(),
+                                    time_slot: entry.slot.clone(),
+                                    status: entry.status.clone(),
+                                });
+                            }
+                        }
+                    }
+                    return;
+                }
+                _ => {}
             }
         } // Drop lock
 
@@ -169,6 +225,9 @@ pub struct UserView {
     pub created_at: i64,
     pub phone: Option<String>,
     pub last_login: Option<i64>,
+    pub consent_marketing: bool,
+    pub consent_analytics: bool,
+    pub privacy_policy_accepted_at: Option<i64>,
 }
 
 #[derive(Clone)]
@@ -215,6 +274,9 @@ impl UsersProjection {
                     created_at: e.created_at,
                     phone: e.phone,
                     last_login: None,
+                    consent_marketing: false,
+                    consent_analytics: false,
+                    privacy_policy_accepted_at: None,
                 };
 
                 // Update indexes
@@ -267,19 +329,20 @@ impl UsersProjection {
 mod tests {
     use super::*;
     use crate::core::events::{
-        AvailabilityEntryV1, Event, ParticipantJoinedV1, PollCreatedV1, VoteUpdatedV1,
+        AvailabilityEntryV1, Event, ParticipantJoinedV1, PollCreatedV2, VoteUpdatedV2,
     };
 
     #[test]
     fn test_apply_with_id_handles_poll_created() {
         let projection = PollsProjection::new();
         let poll_id = "test-poll-123".to_string();
-        let event = Event::V1PollCreated(PollCreatedV1 {
+        let event = Event::V2PollCreated(PollCreatedV2 {
             id: poll_id.clone(),
             title: "Test Poll".to_string(),
             description: "Desc".to_string(),
             location: "Loc".to_string(),
             dates: vec!["2023-01-01".to_string()],
+            created_at: 1000,
         });
 
         projection.apply_with_id(&poll_id, event);
@@ -295,12 +358,13 @@ mod tests {
         let poll_id = "test-poll-123".to_string();
 
         // 1. Create Poll
-        projection.apply(Event::V1PollCreated(PollCreatedV1 {
+        projection.apply(Event::V2PollCreated(PollCreatedV2 {
             id: poll_id.clone(),
             title: "Test".to_string(),
             description: "Desc".to_string(),
             location: "Loc".to_string(),
             dates: vec!["2023-01-01".to_string()],
+            created_at: 1000,
         }));
 
         // 2. Add Participant via Event (Fixing Bug 2 simulation)
@@ -313,9 +377,9 @@ mod tests {
         }));
 
         // 3. Update Vote
-        let event = Event::V1VoteUpdated(VoteUpdatedV1 {
+        let event = Event::V2VoteUpdated(VoteUpdatedV2 {
             participant_name: "User".to_string(),
-            participant_email: "user@test.com".to_string(),
+            participant_email: Some("user@test.com".to_string()),
             availability: vec![AvailabilityEntryV1 {
                 date: "2023-01-01".to_string(),
                 slot: "12:00".to_string(),

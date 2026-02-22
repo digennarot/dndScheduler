@@ -25,9 +25,9 @@ class AvailabilityManager {
     }
 
     checkUrlForSession() {
-        // Support both query param ?id=123 and path /p/123
+        // Support both query param ?id=123, ?poll=123, and path /p/123
         const urlParams = new URLSearchParams(window.location.search);
-        let pollId = urlParams.get('id');
+        let pollId = urlParams.get('id') || urlParams.get('poll');
 
         if (!pollId) {
             const pathMatch = window.location.pathname.match(/\/p\/([^\/]+)/);
@@ -118,59 +118,113 @@ class AvailabilityManager {
     }
 
     async joinSession(pollId) {
-        try {
-            const response = await fetch(`/api/polls/${pollId}/join`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: this.currentUser.name,
-                    email: this.currentUser.email
-                })
-            });
+        // Story 2.1: Anonymous users don't need to explicitly "join" via API
+        // We just store their identity locally and submit it with the vote.
+        // However, if they provide an email, they might expect to be reachable/linked?
+        // For now, we treat "Guest" join as purely local state until they vote.
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Impossibile unirsi alla sessione');
+        // If explicitly logging in (Authentication), that's handled by identifyUser/Login flow.
+        // This method is for the "Guest" form submission.
+
+        try {
+            // Check if we have a name (set in promptUserIdentification)
+            if (!this.currentUser || !this.currentUser.name) {
+                this.promptUserIdentification();
+                return;
             }
 
-            const data = await response.json();
-            this.currentUser.id = data.id;
-            this.currentUser.accessToken = data.access_token; // Store access token
-            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-            this.updateUserDisplay(); // Update UI to show user info
+            // For guests, we don't call the API yet. We just update UI.
+            this.updateUserDisplay();
+            this.showAvailabilityInterface();
+            this.showNotification('Benvenuto', 'Indica la tua disponibilità nella griglia.');
 
-            if (this.selectedSession) {
+            // Add to local list to reflect in UI immediately
+            if (this.selectedSession && !this.selectedSession.participants.find(p => p.name === this.currentUser.name)) {
+                // Mock participant entry
                 this.selectedSession.participants.push({
-                    id: this.currentUser.id,
+                    id: 'temp-' + Date.now(),
                     name: this.currentUser.name,
                     email: this.currentUser.email
                 });
-                if (!window.DDSchedulerApp.users.find(u => u.id === this.currentUser.id)) {
-                    window.DDSchedulerApp.users.push(this.currentUser);
-                }
-            }
-
-            this.showAvailabilityInterface();
-            this.showNotification('Sessione Partecipata', 'Ti sei unito con successo alla sessione!');
-
-            if (window.DDSchedulerApp) {
-                await window.DDSchedulerApp.fetchPolls();
+                this.loadGroupOverview();
             }
 
         } catch (error) {
             console.error('Error joining session:', error);
+            this.showNotification('Errore', error.message, 'error');
+        }
+    }
 
-            // Only clear user data if specifically unauthorized (401)
-            // or if it's a critical auth failure, not just a network error
-            if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-                this.currentUser = null;
-                localStorage.removeItem('currentUser');
-                this.updateUserDisplay(); // Hide user info
+    async submitAvailability() {
+        if (!this.selectedSession || !this.currentUser) {
+            this.showNotification('Attenzione', 'Devi unirti alla sessione prima di inviare.', 'warning');
+            this.promptUserIdentification();
+            return;
+        }
+
+        const pollId = this.selectedSession.id;
+
+        // Transform availabilityData to API format
+        // Data: { "yyyy-mm-dd_HH:MM": "available" | "tentative" }
+        // API: { name: string, availability: [{ date, timeSlot, status }] }
+
+        const availabilityPayload = Object.entries(this.availabilityData).map(([key, status]) => {
+            const [date, time] = key.split('_');
+            return {
+                date: date,
+                timeSlot: time,
+                status: status
+            };
+        });
+
+        const payload = {
+            name: this.currentUser.name,
+            availability: availabilityPayload
+        };
+
+        // UI: Show saving state
+        const saveBtn = document.querySelector('#availability-section button.primary');
+        let originalBtnText = '';
+        if (saveBtn) {
+            originalBtnText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span class="animate-spin inline-block mr-2">↻</span> Salvataggio...';
+            saveBtn.disabled = true;
+            saveBtn.classList.add('opacity-75');
+        }
+
+        try {
+            const response = await fetch(`/api/polls/${pollId}/vote`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Errore durante il salvataggio');
             }
 
-            this.showNotification('Errore', error.message || 'Impossibile unirsi alla sessione', 'error');
+            this.showNotification('Successo', 'Disponibilità registrata con successo!', 'success');
+
+            // Refresh data
+            if (window.DDSchedulerApp) {
+                await window.DDSchedulerApp.fetchPolls();
+                // Re-select to update overview
+                await this.selectSession(pollId);
+            }
+
+        } catch (error) {
+            console.error('Submit error:', error);
+            this.showNotification('Errore', 'Impossibile salvare la disponibilità. Riprova.', 'error');
+        } finally {
+            // Restore button state
+            if (saveBtn) {
+                saveBtn.innerHTML = originalBtnText;
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-75');
+            }
         }
     }
 
@@ -227,43 +281,28 @@ class AvailabilityManager {
         // Identify user first
         await this.identifyUser();
 
-        // Check if user is identified
-        if (!this.currentUser) {
-            this.promptUserIdentification();
-            return;
+        // Story 2.2: Populate local availability from My Vote
+        this.availabilityData = {};
+        if (this.selectedSession.myVote && Array.isArray(this.selectedSession.myVote)) {
+            this.selectedSession.myVote.forEach(vote => {
+                this.availabilityData[`${vote.date}_${vote.time_slot}`] = vote.status;
+            });
         }
 
-        // Check if user is a participant (BY USER ID or ID)
-        // 1. Try matching User ID (AuthUser)
-        const participantRecord = this.selectedSession.participants.find(p => p.user_id && p.user_id === this.currentUser.id);
+        // Story 2: Anonymous access allowed. We check identity on submit.
 
-        if (participantRecord) {
-            // Found linked participant!
-            this.currentUser.participantId = participantRecord.id;
-            // No access token needed if owned by user
-            this.showAvailabilityInterface();
-            return;
-        }
+        // Check if user is a participant (BY USER ID or ID) if we have a user
+        if (this.currentUser) {
+            // 1. Try matching User ID (AuthUser)
+            const participantRecord = this.selectedSession.participants.find(p => p.user_id && p.user_id === this.currentUser.id);
 
-        // 2. Try matching Participant ID (Guest/Legacy)
-        if (this.selectedSession.participants.some(p => p.id === this.currentUser.id)) {
-            // Current User ID IS the participant ID (Guest flow)
-            this.currentUser.participantId = this.currentUser.id;
-            // Logic in joinSession sets currentUser.id = participant.id
-            // So this branch usually handles guests or legacy manual joins.
-        } else {
-            // Use joinSession to become a participant
-            await this.joinSession(this.selectedSession.id);
-            // If join failed (e.g. error), don't show interface yet?
-            // Actually joinSession shows notification on error.
-            // But if we are here, we might have successfully joined or failed.
-            // If failed, currentUser might still be set (if not 409).
-
-            // Check if we are now a participant (re-check locally)
-            if (this.selectedSession.participants.some(p => p.id === this.currentUser?.id)) {
-                this.showAvailabilityInterface();
+            if (participantRecord) {
+                // Found linked participant!
+                this.currentUser.participantId = participantRecord.id;
+            } else if (this.selectedSession.participants.some(p => p.id === this.currentUser.id)) {
+                // 2. Try matching Participant ID (Guest/Legacy)
+                this.currentUser.participantId = this.currentUser.id;
             }
-            return;
         }
 
         this.showAvailabilityInterface();
@@ -300,6 +339,17 @@ class AvailabilityManager {
                     <button type="submit" class="w-full bg-forest text-white py-3 rounded-lg font-semibold mystical-glow mt-4">
                         Accedi e Continua
                     </button>
+                    <div class="relative py-4">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-white text-gray-500">Oppure</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-center" id="am-google-login-container" style="min-height: 40px;">
+                        <span class="text-gray-400 text-sm">Caricamento Google Login...</span>
+                    </div>
                 </form>
                 
                 <!-- Guest Form (hidden by default) -->
@@ -320,6 +370,11 @@ class AvailabilityManager {
         `;
 
         document.body.appendChild(modal);
+
+        sessionStorage.setItem('auth_return_url', window.location.href);
+        if (window.authManager && window.authManager.initGoogleLogin) {
+            window.authManager.initGoogleLogin('am-google-login-container');
+        }
 
         // Tab switching
         const loginTab = modal.querySelector('#login-tab');
@@ -627,8 +682,10 @@ class AvailabilityManager {
                     } else {
                         this.availabilityData[cellId] = state;
                     }
-                    // Optional: Auto-save draft on change?
-                    // this.saveAsDraft(); 
+
+                    // Auto-save draft
+                    this.hasUnsavedChanges = true;
+                    this.debouncedSave();
                 }
             });
 
@@ -646,6 +703,30 @@ class AvailabilityManager {
             console.error("MagicalGrid class not found on window");
         }
     }
+
+    // Debounce helper
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func.apply(this, args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Debounced save method
+    debouncedSave = this.debounce(() => {
+        if (this.hasUnsavedChanges && this.currentUser) {
+            console.log('Auto-saving...');
+            // We use submitAvailability but might want a "silent" mode?
+            // For now, standard submit is fine, it just shows the button spinner.
+            this.submitAvailability();
+            this.hasUnsavedChanges = false;
+        }
+    }, 2000); // 2 second delay
 
     createGridCell(content, type, id = null) {
         const cell = document.createElement('div');
@@ -970,44 +1051,42 @@ class AvailabilityManager {
             return;
         }
 
+        if (!this.selectedSession) {
+            this.showNotification('Errore', 'Nessuna sessione selezionata', 'error');
+            return;
+        }
+
+        // Story 2: Check identity on submit
+        if (!this.currentUser || !this.currentUser.name) {
+            this.promptUserIdentification();
+            return;
+        }
+
         try {
-            if (!this.selectedSession) throw new Error('Nessuna sessione selezionata');
-            if (!this.currentUser?.id) {
-                this.promptUserIdentification();
-                throw new Error('Utente non identificato');
-            }
-
-            if (!this.currentUser?.accessToken) {
-                this.showNotification('Errore Autorizzazione', 'Token mancante. Per favore unisciti di nuovo alla sessione.', 'error');
-                throw new Error('Access token missing');
-            }
-
             const availabilityList = Object.entries(this.availabilityData).map(([key, status]) => {
                 const [date, time] = key.split('_');
                 return {
                     date: date,
-                    timeSlot: time,
+                    time_slot: time,
                     status: status
                 };
             });
 
-            const participantId = this.currentUser.participantId || this.currentUser.id;
-
-            const response = await fetch(`/api/polls/${this.selectedSession.id}/participants/${participantId}/availability`, {
+            // Story 2.5: Voting API
+            const response = await fetch(`/api/polls/${this.selectedSession.id}/vote`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.currentUser.accessToken}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    availability: availabilityList,
-                    access_token: this.currentUser.accessToken
+                    name: this.currentUser.name,
+                    slots: availabilityList
                 })
             });
 
             if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(errorData || 'Impossibile inviare la disponibilità');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Impossibile inviare la disponibilità');
             }
 
             this.showSuccessMessage();
@@ -1018,6 +1097,7 @@ class AvailabilityManager {
             }
 
             setTimeout(() => {
+                // Redirect to dashboard or refresh to see heatmap
                 window.location.href = 'index.html';
             }, 2000);
 

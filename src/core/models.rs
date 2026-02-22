@@ -1,9 +1,23 @@
 pub mod poll_aggregate;
 pub use poll_aggregate::PollAggregate;
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AuditLog {
+    pub id: String,
+    pub user_id: Option<String>,
+    pub action: String,
+    pub resource: Option<String>,
+    pub timestamp: i64,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub success: bool,
+    pub details: Option<String>,
+}
+
+// Removed sqlx::FromRow
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Poll {
     pub id: String,
     pub title: String,
@@ -20,16 +34,18 @@ pub struct Poll {
     pub recurrence_rule: Option<String>, // New field for RRULE
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Participant {
     pub id: String,
     pub poll_id: String,
     pub name: String,
     pub email: Option<String>,
     pub access_token: Option<String>,
+    #[serde(default)]
+    pub user_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Availability {
     pub id: Option<i64>,
     pub poll_id: String,
@@ -40,7 +56,7 @@ pub struct Availability {
 }
 
 // Request structs
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PollInstance {
     pub id: String,
     pub poll_id: String,
@@ -56,6 +72,7 @@ pub struct CreatePollRequest {
     pub description: String,
     pub location: String,
     pub dates: Vec<String>,
+    pub timezone: Option<String>,
     #[serde(rename = "timeRange")]
     pub time_range: Option<String>, // Legacy: camelCase from JS, optional for backward compatibility
     #[serde(rename = "timePreferences")]
@@ -63,6 +80,21 @@ pub struct CreatePollRequest {
     pub periodicity: Option<String>, // "daily", "weekly", "biweekly", "monthly" - simplified for UI
     pub recurrence_rule: Option<String>, // Full RRULE string
     pub participants: Vec<String>,   // List of emails
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PollResponse {
+    pub poll: Poll,
+    pub participants: Vec<Participant>,
+    pub votes: Vec<Availability>,
+    pub instances: Vec<PollInstance>,
+    pub my_vote: Option<Vec<AvailabilityEntry>>, // Derived from session
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VoteRequest {
+    pub name: String,
+    pub availability: Vec<AvailabilityEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,11 +109,10 @@ pub struct JoinPollRequest {
     pub email: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Admin {
     pub id: String,
     pub username: String,
-    #[serde(skip_serializing)]
     pub password_hash: String,
     pub email: Option<String>,
     pub role: String,
@@ -104,7 +135,7 @@ pub struct GoogleLoginRequest {
     pub picture: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthResponse {
     pub token: String,
     pub user: Admin,
@@ -119,8 +150,8 @@ pub struct UpdateAvailabilityRequest {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AvailabilityEntry {
     pub date: String,
-    #[serde(rename = "timeSlot")]
-    pub time_slot: String, // camelCase from JS
+    #[serde(rename = "time_slot", alias = "timeSlot")]
+    pub time_slot: String, // supports both from frontend
     pub status: String,
 }
 
@@ -183,20 +214,25 @@ pub struct GoogleLoginPayload {
 // USER AUTHENTICATION MODELS
 // ============================================================================
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: String,
     pub email: String,
-    #[serde(skip_serializing)]
     pub password_hash: String,
     pub name: String,
     pub role: String, // 'player' or 'dm'
     pub created_at: i64,
     pub last_login: Option<i64>,
     pub phone: Option<String>,
+    #[serde(default)]
+    pub consent_marketing: bool,
+    #[serde(default)]
+    pub consent_analytics: bool,
+    #[serde(default)]
+    pub privacy_policy_accepted_at: Option<i64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserSession {
     pub id: String,
     pub user_id: String,
@@ -219,13 +255,13 @@ pub struct UserLoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserAuthResponse {
     pub token: String,
     pub user: UserPublic,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserPublic {
     pub id: String,
     pub email: String,
@@ -251,7 +287,7 @@ impl From<User> for UserPublic {
 // ACTIVITY FEED MODELS
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Activity {
     pub id: String,
     pub activity_type: String, // "poll_created", "response_submitted", ecc.
@@ -356,13 +392,13 @@ pub struct EmailReminderRequest {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReminderResponse {
     pub success: bool,
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReminderConfig {
     pub whatsapp_enabled: bool,
     pub telegram_enabled: bool,
@@ -373,7 +409,7 @@ pub struct ReminderConfig {
 // GDPR COMPLIANCE MODELS
 // ============================================================================
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConsentRecord {
     pub id: Option<i64>,
     pub user_id: String,
@@ -398,7 +434,7 @@ pub struct UpdateConsentRequest {
     pub accept_privacy_policy: Option<bool>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserDataExport {
     pub user: UserPublicExport,
     pub consent_history: Vec<ConsentRecord>,
@@ -409,7 +445,7 @@ pub struct UserDataExport {
     pub gdpr_notice: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserPublicExport {
     pub id: String,
     pub email: String,
@@ -421,7 +457,7 @@ pub struct UserPublicExport {
     pub consent_analytics: bool,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PollParticipation {
     pub poll_id: String,
     pub poll_title: String,

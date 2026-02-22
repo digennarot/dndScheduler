@@ -44,6 +44,7 @@ export class MagicalGrid {
     render() {
         this.container.innerHTML = '';
         this.container.classList.add('magical-grid');
+        this.container.style.touchAction = 'none'; // Prevent scrolling while painting
 
         // CSS Grid Layout: TimeLabels + Days...
         const numCols = this.config.days.length + 1; // +1 for labels

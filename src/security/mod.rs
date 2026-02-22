@@ -3,3 +3,4 @@ pub mod auth;
 pub mod authelia;
 pub mod gdpr;
 pub mod headers;
+pub mod middleware;

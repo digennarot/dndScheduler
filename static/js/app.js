@@ -20,6 +20,92 @@ class DDSchedulerApp {
         await this.fetchPolls();
         this.setupEventListeners();
         this.initializeAnimations();
+        this.initializeVideoFeatures();
+    }
+
+    initializeVideoFeatures() {
+        // Only run on the main landing page
+        if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
+            return;
+        }
+
+        const introOverlay = document.getElementById('intro-video-overlay');
+        const introVideo = document.getElementById('intro-video');
+        const introControls = document.getElementById('intro-controls');
+        const startIntroBtn = document.getElementById('start-intro-btn');
+        const skipIntroBtn = document.getElementById('skip-intro-btn');
+
+        const promoTrigger = document.getElementById('promo-video-trigger');
+        const trailerModal = document.getElementById('trailer-modal');
+        const promoVideo = document.getElementById('promo-video');
+        const closeTrailerBtn = document.getElementById('close-trailer-btn');
+
+        // 1. Handling the Skippable Intro on First Visit
+        if (introOverlay && introVideo) {
+            const hasSeenIntro = localStorage.getItem('dndrs_hasSeenIntro');
+
+            if (!hasSeenIntro) {
+                // Show overlay
+                introOverlay.classList.remove('hidden');
+                introOverlay.classList.add('flex');
+
+                // Block body scroll
+                document.body.style.overflow = 'hidden';
+
+                const closeIntro = () => {
+                    introOverlay.classList.add('hidden');
+                    introOverlay.classList.remove('flex');
+                    introVideo.pause();
+                    document.body.style.overflow = '';
+                    localStorage.setItem('dndrs_hasSeenIntro', 'true');
+                };
+
+                startIntroBtn.addEventListener('click', () => {
+                    // Hide controls, show skip btn
+                    introControls.style.opacity = '0';
+                    setTimeout(() => introControls.style.display = 'none', 500);
+
+                    skipIntroBtn.classList.remove('hidden');
+                    skipIntroBtn.classList.add('block');
+
+                    // Play video unmuted
+                    introVideo.muted = false;
+                    introVideo.play().catch(e => console.error("Video play failed", e));
+                });
+
+                skipIntroBtn.addEventListener('click', closeIntro);
+
+                // Auto close when video ends
+                introVideo.addEventListener('ended', closeIntro);
+            }
+        }
+
+        // 2. Handling the Promo Video Modal
+        if (promoTrigger && trailerModal && promoVideo) {
+            promoTrigger.addEventListener('click', () => {
+                trailerModal.classList.remove('hidden');
+                trailerModal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+                promoVideo.play().catch(e => console.error("Promo play failed", e));
+            });
+
+            const closeTrailer = () => {
+                trailerModal.classList.add('hidden');
+                trailerModal.classList.remove('flex');
+                promoVideo.pause();
+                promoVideo.currentTime = 0; // reset
+                document.body.style.overflow = '';
+            };
+
+            closeTrailerBtn.addEventListener('click', closeTrailer);
+
+            // Close on click outside video
+            trailerModal.addEventListener('click', (e) => {
+                if (e.target === trailerModal) {
+                    closeTrailer();
+                }
+            });
+        }
     }
 
     async fetchPolls() {
@@ -238,10 +324,13 @@ class DDSchedulerApp {
                     availability: availabilityMap,
                     availabilityScore: totalSlots > 0 ? Math.round((availableCount / totalSlots) * 100) : 0
                 };
-            } else {
-                poll.responses[p.id] = { responded: false };
             }
         });
+
+        // Story 2.2: Map my_vote to poll object
+        if (data.my_vote) {
+            poll.myVote = data.my_vote;
+        }
 
         return poll;
     }

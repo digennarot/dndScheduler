@@ -20,28 +20,15 @@ pub async fn get_consent(
 ) -> Result<Json<ConsentPreferences>, (StatusCode, String)> {
     let user = auth_user.0;
 
-    // Query user consent preferences
-    let result: Option<(bool, bool, Option<i64>)> = sqlx::query_as(
-        "SELECT consent_marketing, consent_analytics, privacy_policy_accepted_at FROM users WHERE id = ?",
-    )
-    .bind(&user.id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Database error: {}", e),
-        )
-    })?;
+    let db_user = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user.id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e)))?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
 
-    match result {
-        Some((marketing, analytics, privacy_accepted)) => Ok(Json(ConsentPreferences {
-            consent_marketing: marketing,
-            consent_analytics: analytics,
-            privacy_policy_accepted: privacy_accepted.is_some(),
-        })),
-        None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
-    }
+    Ok(Json(ConsentPreferences {
+        consent_marketing: db_user.consent_marketing,
+        consent_analytics: db_user.consent_analytics,
+        privacy_policy_accepted: db_user.privacy_policy_accepted_at.is_some(),
+    }))
 }
 
 // ============================================================================
@@ -69,20 +56,15 @@ pub async fn update_consent(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
+    let mut db_user = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user.id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e)))?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
+    let mut user_changed = false;
+
     // Update marketing consent if provided
     if let Some(marketing) = payload.consent_marketing {
-        sqlx::query("UPDATE users SET consent_marketing = ? WHERE id = ?")
-            .bind(marketing)
-            .bind(&user.id)
-            .execute(&pool)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to update marketing consent: {}", e),
-                )
-            })?;
-
+        db_user.consent_marketing = marketing;
+        user_changed = true;
         // Log consent change
         log_consent_change(
             &pool,
@@ -97,18 +79,8 @@ pub async fn update_consent(
 
     // Update analytics consent if provided
     if let Some(analytics) = payload.consent_analytics {
-        sqlx::query("UPDATE users SET consent_analytics = ? WHERE id = ?")
-            .bind(analytics)
-            .bind(&user.id)
-            .execute(&pool)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to update analytics consent: {}", e),
-                )
-            })?;
-
+        db_user.consent_analytics = analytics;
+        user_changed = true;
         // Log consent change
         log_consent_change(
             &pool,
@@ -124,18 +96,8 @@ pub async fn update_consent(
     // Update privacy policy acceptance if provided
     if let Some(accept) = payload.accept_privacy_policy {
         if accept {
-            sqlx::query("UPDATE users SET privacy_policy_accepted_at = ? WHERE id = ?")
-                .bind(now)
-                .bind(&user.id)
-                .execute(&pool)
-                .await
-                .map_err(|e| {
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to update privacy policy acceptance: {}", e),
-                    )
-                })?;
-
+            db_user.privacy_policy_accepted_at = Some(now);
+            user_changed = true;
             // Log consent change
             log_consent_change(
                 &pool,
@@ -147,6 +109,11 @@ pub async fn update_consent(
             )
             .await?;
         }
+    }
+
+    if user_changed {
+        crate::db::queries::user_repo::UserRepo::create_or_update(&pool, &db_user)
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to update user: {}", e)))?;
     }
 
     Ok(Json(json!({
@@ -165,24 +132,9 @@ async fn log_consent_change(
     user_agent: &Option<String>,
 ) -> Result<(), (StatusCode, String)> {
     let now = Utc::now().timestamp();
-
-    sqlx::query(
-        "INSERT INTO consent_records (user_id, consent_type, consented, ip_address, user_agent, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(user_id)
-    .bind(consent_type)
-    .bind(consented)
-    .bind(ip_address)
-    .bind(user_agent)
-    .bind(now)
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to log consent change: {}", e),
-        )
-    })?;
+    crate::db::queries::gdpr_repo::GdprRepo::log_consent_change(
+        pool, user_id, consent_type, consented, ip_address, user_agent, now
+    ).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to log consent change: {}", e)))?;
 
     Ok(())
 }
@@ -198,33 +150,15 @@ pub async fn export_data(
     let user = auth_user.0;
     let now = Utc::now();
 
-    #[derive(sqlx::FromRow)]
-    struct UserDetails {
-        id: String,
-        email: String,
-        name: String,
-        role: String,
-        phone: Option<String>,
-        created_at: i64,
-        consent_marketing: bool,
-        consent_analytics: bool,
-    }
-
     // Get user details with consent
-    let user_details: Option<UserDetails> = sqlx::query_as(
-        "SELECT id, email, name, role, phone, created_at, consent_marketing, consent_analytics FROM users WHERE id = ?",
-    )
-    .bind(&user.id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Database error: {}", e),
-        )
-    })?;
-
-    let details = user_details.ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
+    let details = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user.id)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            )
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
 
     let user_export = UserPublicExport {
         id: details.id,
@@ -238,86 +172,36 @@ pub async fn export_data(
     };
 
     // Get consent history
-    let consent_history: Vec<ConsentRecord> = sqlx::query_as(
-        "SELECT id, user_id, consent_type, consented, ip_address, user_agent, timestamp FROM consent_records WHERE user_id = ? ORDER BY timestamp DESC",
-    )
-    .bind(&user.id)
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to fetch consent history: {}", e),
-        )
-    })?;
+    let consent_history = crate::db::queries::gdpr_repo::GdprRepo::get_consent_history(&pool, &user.id)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to fetch consent history: {}", e),
+            )
+        })?;
 
     // Get activities
-    let activities: Vec<Activity> = sqlx::query_as(
-        "SELECT id, activity_type, user_id, user_name, poll_id, poll_name, message, timestamp FROM activities WHERE user_id = ? ORDER BY timestamp DESC",
-    )
-    .bind(&user.id)
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to fetch activities: {}", e),
-        )
-    })?;
+    let activities = crate::db::queries::activity_repo::ActivityRepo::get_user_activities(&pool, &user.id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to fetch activities: {}", e)))?;
 
     // Get poll participation
-    let poll_participation: Vec<PollParticipation> = sqlx::query_as(
-        r#"
-        SELECT p.poll_id, polls.title as poll_title, p.name as participant_name, NULL as joined_at
-        FROM participants p
-        JOIN polls ON p.poll_id = polls.id
-        WHERE p.user_id = ?
-        "#,
-    )
-    .bind(&user.id)
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to fetch poll participation: {}", e),
-        )
-    })?;
+    let poll_participation = crate::db::queries::poll_repo::PollRepo::get_user_participation(&pool, &user.id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to fetch poll participation: {}", e)))?;
 
     // Get availability records
-    let availability_records: Vec<Availability> = sqlx::query_as(
-        r#"
-        SELECT a.id, a.poll_id, a.participant_id, a.date, a.time_slot, a.status
-        FROM availability a
-        JOIN participants p ON a.participant_id = p.id
-        WHERE p.user_id = ?
-        ORDER BY a.date DESC
-        "#,
-    )
-    .bind(&user.id)
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to fetch availability records: {}", e),
-        )
-    })?;
+    let availability_records = crate::db::queries::poll_repo::PollRepo::get_user_availability(&pool, &user.id)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to fetch availability records: {}", e)))?;
 
     // Log the export request in audit
-    sqlx::query(
-        "INSERT INTO audit_log (user_id, action, resource, timestamp, ip_address, success, details) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&user.id)
-    .bind("data_export")
-    .bind("user_data")
-    .bind(now.timestamp())
-    .bind::<Option<String>>(None)
-    .bind(true)
-    .bind("GDPR data export requested")
-    .execute(&pool)
-    .await
-    .ok(); // Don't fail if audit log fails
+    crate::security::audit::log_audit(
+        &pool,
+        Some(user.id.clone()),
+        "data_export",
+        Some("user_data".to_string()),
+        true,
+        Some("GDPR data export requested".to_string()),
+        None,
+    ).await;
 
     Ok(Json(UserDataExport {
         user: user_export,
@@ -350,19 +234,16 @@ pub async fn delete_account_confirmed(
     }
 
     // Verify password
-    let stored_hash: Option<String> =
-        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = ?")
-            .bind(&user.id)
-            .fetch_optional(&pool)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Database error: {}", e),
-                )
-            })?;
-
-    let hash = stored_hash.ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
+    let db_user = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &user.id)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            )
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
+    
+    let hash = db_user.password_hash;
 
     let password_valid = bcrypt::verify(&payload.password, &hash).unwrap_or(false);
     if !password_valid {
@@ -373,70 +254,32 @@ pub async fn delete_account_confirmed(
     }
 
     // Log deletion in audit log before deleting
-    let now = Utc::now().timestamp();
-    sqlx::query(
-        "INSERT INTO audit_log (user_id, action, resource, timestamp, success, details) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(&user.id)
-    .bind("account_deletion")
-    .bind("user")
-    .bind(now)
-    .bind(true)
-    .bind(format!("User {} requested account deletion", user.email))
-    .execute(&pool)
-    .await
-    .ok();
-
-    // Delete user's sessions
-    sqlx::query("DELETE FROM user_sessions WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
-
-    // Delete user's availability entries
-    sqlx::query("DELETE FROM availability WHERE participant_id IN (SELECT id FROM participants WHERE user_id = ?)")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
-
-    // Delete user's participant entries
-    sqlx::query("DELETE FROM participants WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
+    crate::security::audit::log_audit(
+        &pool,
+        Some(user.id.clone()),
+        "account_deletion",
+        Some("user".to_string()),
+        true,
+        Some(format!("User {} requested account deletion", user.email)),
+        None,
+    ).await;
 
     // Delete user's activities
-    sqlx::query("DELETE FROM activities WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
+    let _ = crate::db::queries::activity_repo::ActivityRepo::delete_user_activities(&pool, &user.id);
 
-    // Delete consent records (keep for audit - anonymize instead)
-    sqlx::query("UPDATE consent_records SET user_id = 'DELETED_USER' WHERE user_id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .ok();
+    // Anonymize consent records (keep for audit)
+    let _ = crate::db::queries::gdpr_repo::GdprRepo::anonymize_consent_records(&pool, &user.id);
+
+    // Delete user data (sessions, etc.)
+    let _ = crate::db::queries::user_repo::UserRepo::delete_user_all_data(&pool, &user.id);
 
     // Finally, delete the user
-    let result = sqlx::query("DELETE FROM users WHERE id = ?")
-        .bind(&user.id)
-        .execute(&pool)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to delete account: {}", e),
-            )
-        })?;
-
-    if result.rows_affected() == 0 {
-        return Err((StatusCode::NOT_FOUND, "User not found".to_string()));
-    }
+    crate::db::queries::user_repo::UserRepo::delete(&pool, &user.id).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to delete account: {}", e),
+        )
+    })?;
 
     Ok(StatusCode::NO_CONTENT)
 }

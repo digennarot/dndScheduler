@@ -455,7 +455,7 @@ class AuthManager {
                 </div>`;
                 userDisplay.style.display = 'flex';
                 if (logoutBtn) {
-                    logoutBtn.style.display = 'block';
+                    logoutBtn.style.display = 'flex';
                     logoutBtn.onclick = () => this.logout();
                 }
             } else {

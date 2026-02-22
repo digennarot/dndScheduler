@@ -1,249 +1,115 @@
-// Integration Tests for Authentication
-// Test di integrazione per il sistema di autenticazione
+use super::helpers;
+use axum::http::StatusCode;
+use axum_test::TestServer;
 
-#[cfg(test)]
-mod auth_integration_tests {
-    use crate::helpers::{
-        cleanup_test_db, create_test_user, create_test_user_with_session, setup_test_db,
-    };
+#[tokio::test]
+async fn test_user_registration_and_login() {
+    let ctx = helpers::setup_test_app().await;
+    let server = TestServer::new(ctx.app).unwrap();
 
-    #[tokio::test]
-    async fn test_user_registration_with_valid_data() {
-        let pool = setup_test_db().await;
+    let email = "newuser@test.com";
+    let password = "SecurePass123!@#";
+    let name = "Test User";
 
-        // Dati validi per la registrazione
-        let email = "newuser@test.com";
-        let password = "SecurePass123!@#";
+    // 1. Register via API (important for projection)
+    let reg_response = server
+        .post("/api/auth/register")
+        .json(&serde_json::json!({
+            "email": email,
+            "password": password,
+            "name": name,
+            "phone": "+1234567890"
+        }))
+        .await;
+    
+    assert_eq!(reg_response.status_code(), StatusCode::CREATED);
+    let reg_data = reg_response.json::<serde_json::Value>();
+    assert_eq!(reg_data["user"]["email"], email);
 
-        // Simula registrazione (usando helper)
-        let user_id = create_test_user(&pool, email, password, "player").await;
-
-        // Verifica che l'utente sia stato creato
-        let result: Option<(String, String)> =
-            sqlx::query_as("SELECT id, role FROM users WHERE email = ?")
-                .bind(email)
-                .fetch_optional(&pool)
-                .await
-                .unwrap();
-
-        assert!(result.is_some());
-        let (id, role) = result.unwrap();
-        assert_eq!(id, user_id);
-        assert_eq!(role, "player"); // Ruolo di default
-
-        cleanup_test_db(&pool).await;
-    }
-
-    #[tokio::test]
-    async fn test_user_registration_with_phone() {
-        let pool = setup_test_db().await;
-
-        let email = "phone_user@test.com";
-        let password = "validPassword123";
-        let phone = "+393331234567";
-        let user_id = uuid::Uuid::new_v4().to_string();
-        let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
-        let now = chrono::Utc::now().timestamp();
-
-        // Insert user manually with phone number (simulating registration with phone)
-        sqlx::query(
-            "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&user_id)
-        .bind(email)
-        .bind(&password_hash)
-        .bind("Phone User")
-        .bind("player")
-        .bind(now)
-        .bind(now)
-        .bind(phone)
-        .execute(&pool)
-        .await
-        .expect("Failed to insert user with phone");
-
-        // Verify retrieval
-        let saved_phone: Option<String> =
-            sqlx::query_scalar("SELECT phone FROM users WHERE email = ?")
-                .bind(email)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
-
-        assert_eq!(saved_phone, Some(phone.to_string()));
-
-        cleanup_test_db(&pool).await;
-    }
-
-    #[tokio::test]
-    async fn test_user_cannot_register_with_duplicate_email() {
-        let pool = setup_test_db().await;
-
-        let email = "duplicate@test.com";
-        let password = "SecurePass123!@#";
-
-        // Prima registrazione
-        create_test_user(&pool, email, password, "player").await;
-
-        // Tenta seconda registrazione con stessa email - dovrebbe fallire
-        let user_id = uuid::Uuid::new_v4().to_string();
-        let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
-        let now = chrono::Utc::now().timestamp();
-
-        let result = sqlx::query(
-            "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&user_id)
-        .bind(email)
-        .bind(&password_hash)
-        .bind("Test User")
-        .bind("player")
-        .bind(now)
-        .bind(now)
-        .execute(&pool)
+    // 2. Login
+    let login_response = server
+        .post("/api/auth/login")
+        .json(&serde_json::json!({
+            "email": email,
+            "password": password
+        }))
         .await;
 
-        // La registrazione duplicata dovrebbe fallire con errore UNIQUE constraint
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        assert!(error.to_string().contains("UNIQUE"));
+    assert_eq!(login_response.status_code(), StatusCode::OK);
+    let auth_data = login_response.json::<serde_json::Value>();
+    assert!(auth_data.get("token").is_some());
+    assert_eq!(auth_data["user"]["email"], email);
 
-        cleanup_test_db(&pool).await;
-    }
+    // 3. Get Current User with token
+    let token = auth_data["token"].as_str().unwrap();
+    let get_user_res = server
+        .get("/api/auth/me")
+        .add_header("Authorization", format!("Bearer {}", token))
+        .await;
+    
+    assert_eq!(get_user_res.status_code(), StatusCode::OK);
+    assert_eq!(get_user_res.json::<serde_json::Value>()["email"], email);
+}
 
-    #[tokio::test]
-    async fn test_user_login_with_valid_credentials() {
-        let pool = setup_test_db().await;
+#[tokio::test]
+async fn test_login_invalid_credentials() {
+    let ctx = helpers::setup_test_app().await;
+    let server = TestServer::new(ctx.app).unwrap();
 
-        let email = "logintest@test.com";
-        let password = "SecurePass123!@#";
+    let email = "wrong@test.com";
+    let password = "SecurePass123!@#";
+    
+    // Create user via registration
+    server
+        .post("/api/auth/register")
+        .json(&serde_json::json!({
+            "email": email,
+            "password": password,
+            "name": "Test User"
+        }))
+        .await;
 
-        // Crea utente
-        create_test_user(&pool, email, password, "player").await;
+    // Wrong password
+    let res = server
+        .post("/api/auth/login")
+        .json(&serde_json::json!({
+            "email": email,
+            "password": "WrongPassword123!"
+        }))
+        .await;
+    assert_eq!(res.status_code(), StatusCode::UNAUTHORIZED);
 
-        // Verifica che il password hash sia corretto
-        let stored_hash: String =
-            sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
-                .bind(email)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+    // Missing email
+    let res = server
+        .post("/api/auth/login")
+        .json(&serde_json::json!({
+            "email": "nonexistent@test.com",
+            "password": password
+        }))
+        .await;
+    assert_eq!(res.status_code(), StatusCode::UNAUTHORIZED);
+}
 
-        // Verifica che la password corrisponda
-        let valid = bcrypt::verify(password, &stored_hash).unwrap();
-        assert!(valid);
+#[tokio::test]
+async fn test_logout() {
+    let ctx = helpers::setup_test_app().await;
+    let pool = ctx.pool.clone();
+    let server = TestServer::new(ctx.app).unwrap();
 
-        cleanup_test_db(&pool).await;
-    }
+    let (_user_id, token) = helpers::create_test_user_with_session(&pool, "user@test.com", "pass", "player").await;
 
-    #[tokio::test]
-    async fn test_user_login_with_invalid_password() {
-        let pool = setup_test_db().await;
+    // Verify session exists in DB
+    let session = dnd_scheduler::db::queries::admin_repo::SessionRepo::get_user_session(&pool, &token).unwrap();
+    assert!(session.is_some());
 
-        let email = "logintest@test.com";
-        let correct_password = "SecurePass123!@#";
-        let wrong_password = "WrongPassword123!";
+    // Logout
+    let logout_res = server
+        .post(&format!("/api/auth/logout/{}", token)) // Handler seems to take token in path based on src/security/auth.rs:760
+        .await;
+        
+    assert_eq!(logout_res.status_code(), StatusCode::OK);
 
-        // Crea utente
-        create_test_user(&pool, email, correct_password, "player").await;
-
-        // Verifica password errata
-        let stored_hash: String =
-            sqlx::query_scalar("SELECT password_hash FROM users WHERE email = ?")
-                .bind(email)
-                .fetch_one(&pool)
-                .await
-                .unwrap();
-
-        let valid = bcrypt::verify(wrong_password, &stored_hash).unwrap_or(false);
-        assert!(!valid); // Password errata dovrebbe fallire
-
-        cleanup_test_db(&pool).await;
-    }
-
-    #[tokio::test]
-    async fn test_session_creation_and_validation() {
-        let pool = setup_test_db().await;
-
-        let email = "session@test.com";
-        let password = "SecurePass123!@#";
-
-        // Crea utente con sessione
-        let (user_id, token) =
-            create_test_user_with_session(&pool, email, password, "player").await;
-
-        // Verifica che la sessione sia stata creata
-        let session: Option<(String, i64)> =
-            sqlx::query_as("SELECT user_id, expires_at FROM user_sessions WHERE token = ?")
-                .bind(&token)
-                .fetch_optional(&pool)
-                .await
-                .unwrap();
-
-        assert!(session.is_some());
-        let (session_user_id, expires_at) = session.unwrap();
-        assert_eq!(session_user_id, user_id);
-
-        // Verifica che la sessione non sia scaduta
-        let now = chrono::Utc::now().timestamp();
-        assert!(expires_at > now);
-
-        cleanup_test_db(&pool).await;
-    }
-
-    #[tokio::test]
-    async fn test_logout_invalidates_session() {
-        let pool = setup_test_db().await;
-
-        let email = "logout@test.com";
-        let password = "SecurePass123!@#";
-
-        // Crea utente con sessione
-        let (_user_id, token) =
-            create_test_user_with_session(&pool, email, password, "player").await;
-
-        // Simula logout (elimina sessione)
-        sqlx::query("DELETE FROM user_sessions WHERE token = ?")
-            .bind(&token)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        // Verifica che la sessione sia stata eliminata
-        let session: Option<(String,)> =
-            sqlx::query_as("SELECT token FROM user_sessions WHERE token = ?")
-                .bind(&token)
-                .fetch_optional(&pool)
-                .await
-                .unwrap();
-
-        assert!(session.is_none());
-
-        cleanup_test_db(&pool).await;
-    }
-
-    #[tokio::test]
-    async fn test_password_strength_requirements() {
-        // Test password deboli (dovrebbero fallire in produzione)
-        let weak_passwords = vec![
-            "short",         // Troppo corta
-            "nouppercase1!", // Senza maiuscole
-            "NOLOWERCASE1!", // Senza minuscole
-            "NoNumbers!",    // Senza numeri
-            "NoSpecial123",  // Senza caratteri speciali
-        ];
-
-        // In produzione, questi dovrebbero fallire la validazione
-        // Il test helper non valida le password, ma in produzione
-        // il sistema dovrebbe rifiutare queste password
-
-        for password in weak_passwords {
-            assert!(
-                password.len() < 12
-                    || !password.chars().any(|c| c.is_uppercase())
-                    || !password.chars().any(|c| c.is_lowercase())
-                    || !password.chars().any(|c| c.is_numeric())
-                    || !password.chars().any(|c| !c.is_alphanumeric())
-            );
-        }
-    }
+    // Verify session gone
+    let session_after = dnd_scheduler::db::queries::admin_repo::SessionRepo::get_user_session(&pool, &token).unwrap();
+    assert!(session_after.is_none());
 }

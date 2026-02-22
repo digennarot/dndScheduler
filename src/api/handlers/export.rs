@@ -15,12 +15,9 @@ pub async fn export_poll_ics(
     State(pool): State<DbPool>,
     Path(poll_id): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
-    // 1. Fetch Poll
-    let poll: Poll = sqlx::query_as("SELECT * FROM polls WHERE id = ?")
-        .bind(&poll_id)
-        .fetch_optional(&pool)
-        .await
+    let poll: Poll = crate::db::queries::poll_repo::PollRepo::get_details(&pool, &poll_id)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map(|(p, _, _, _)| p)
         .ok_or((StatusCode::NOT_FOUND, "Poll not found".to_string()))?;
 
     // 2. Create iCalendar
@@ -47,18 +44,25 @@ pub async fn export_poll_ics(
         // The 'dates' field is JSON array of strings ["2023-12-01"]
         let dates: Vec<String> = serde_json::from_str(&poll.dates).unwrap_or_default();
         if let Some(first_date) = dates.first() {
-            // We need a time. If poll has time_range/instances, use that.
-            // For now, let's fetch the first instance to get the start time?
-            // Or default to 19:00 if not found.
-            let instance: Option<(String,)> = sqlx::query_as(
-                "SELECT start_time FROM poll_instances WHERE poll_id = ? ORDER BY date ASC LIMIT 1",
-            )
-            .bind(&poll.id)
-            .fetch_optional(&pool)
-            .await
-            .unwrap_or(None);
-
-            let start_time = instance.map(|i| i.0).unwrap_or_else(|| "19:00".to_string());
+            let mut start_time = "19:00".to_string();
+            let mut end_time = "22:00".to_string();
+            if let Ok(read_txn) = pool.begin_read() {
+                if let Ok(table) = read_txn.open_table(crate::db::tables::POLL_INSTANCES_TABLE) {
+                    use redb::ReadableTable;
+                    if let Ok(iter) = table.iter() {
+                        for result in iter {
+                            if let Ok((_, v)) = result {
+                                let inst: crate::core::models::PollInstance = bincode::deserialize(v.value()).unwrap();
+                                if inst.poll_id == poll.id {
+                                    start_time = inst.start_time;
+                                    end_time = inst.end_time;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // Format: YYYYMMDDTHHMM00
             let dtstart = format!(
@@ -68,19 +72,6 @@ pub async fn export_poll_ics(
             );
             event.push(DtStart::new(dtstart));
 
-            // DTEND (Duration)
-            // Default 3 hours if not calculable
-            // Let's just assume 3 hours for now or query end_time
-            let instance_end: Option<(String,)> = sqlx::query_as(
-                "SELECT end_time FROM poll_instances WHERE poll_id = ? ORDER BY date ASC LIMIT 1",
-            )
-            .bind(&poll.id)
-            .fetch_optional(&pool)
-            .await
-            .unwrap_or(None);
-            let end_time = instance_end
-                .map(|i| i.0)
-                .unwrap_or_else(|| "22:00".to_string());
             let dtend = format!(
                 "{}T{}00",
                 first_date.replace("-", ""),

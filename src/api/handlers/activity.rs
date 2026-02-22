@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use crate::db::DbPool;
 
 use crate::core::models::*;
 
@@ -21,49 +21,29 @@ pub struct ActivityQuery {
 
 /// GET /api/activity/recent
 pub async fn get_recent_activity(
-    State(pool): State<SqlitePool>,
+    State(pool): State<DbPool>,
     Query(query): Query<ActivityQuery>,
 ) -> Result<Json<Vec<Activity>>, StatusCode> {
     let limit = query.limit.unwrap_or(10);
     let offset = query.offset.unwrap_or(0);
 
-    let activities = sqlx::query_as::<_, Activity>(
-        "SELECT * FROM activities ORDER BY timestamp DESC LIMIT ? OFFSET ?",
-    )
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(&pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let activities = crate::db::queries::activity_repo::ActivityRepo::get_recent_activity(&pool, limit, offset)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(activities))
 }
 
 /// Helper: Log activity
 pub async fn log_activity(
-    pool: &SqlitePool,
+    pool: &DbPool,
     activity_type: &str,
     user_id: String,
     user_name: String,
     poll_id: Option<String>,
     poll_name: Option<String>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), anyhow::Error> {
     let activity = Activity::new(activity_type, user_id, user_name, poll_id, poll_name);
-
-    sqlx::query(
-        "INSERT INTO activities (id, activity_type, user_id, user_name, poll_id, poll_name, message, timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    )
-    .bind(&activity.id)
-    .bind(&activity.activity_type)
-    .bind(&activity.user_id)
-    .bind(&activity.user_name)
-    .bind(&activity.poll_id)
-    .bind(&activity.poll_name)
-    .bind(&activity.message)
-    .bind(activity.timestamp)
-    .execute(pool)
-    .await?;
+    crate::db::queries::activity_repo::ActivityRepo::log_activity(pool, &activity)?;
 
     Ok(())
 }
@@ -135,24 +115,21 @@ pub async fn send_telegram_reminder(
 
 /// POST /api/reminder/email
 pub async fn send_email_reminder(
-    State(pool): State<SqlitePool>,
+    State(pool): State<DbPool>,
     Json(req): Json<EmailReminderRequest>,
 ) -> Result<Json<ReminderResponse>, StatusCode> {
     // 1. Fetch user email and name
-    let (email, name): (String, String) =
-        sqlx::query_as("SELECT email, name FROM users WHERE id = ?")
-            .bind(&req.user_id)
-            .fetch_optional(&pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::NOT_FOUND)?;
+    let user = crate::db::queries::user_repo::UserRepo::find_by_id(&pool, &req.user_id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    
+    let email = user.email;
+    let name = user.name;
 
     // 2. Fetch session/poll name for context (optional but good)
-    let poll_title: String = sqlx::query_scalar("SELECT title FROM polls WHERE id = ?")
-        .bind(&req.session_id)
-        .fetch_optional(&pool)
-        .await
-        .unwrap_or(Some("Sessione D&D".to_string()))
+    let poll_title = crate::db::queries::poll_repo::PollRepo::get_details(&pool, &req.session_id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map(|(p, _, _, _)| p.title)
         .unwrap_or("Sessione D&D".to_string());
 
     // 3. Send email

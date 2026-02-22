@@ -109,12 +109,12 @@ class AuthManager {
 
             if (loginLink) loginLink.style.display = 'none';
             if (logoutBtn) {
-                logoutBtn.style.display = 'block';
+                logoutBtn.style.display = 'flex';
                 logoutBtn.onclick = () => this.logout();
             }
         } else {
             if (userDisplay) userDisplay.style.display = 'none';
-            if (loginLink) loginLink.style.display = 'block';
+            if (loginLink) loginLink.style.display = 'flex';
             if (logoutBtn) logoutBtn.style.display = 'none';
         }
     }

@@ -422,7 +422,7 @@ class AdminDashboard {
                                     <div class="bg-black/30 p-3 rounded border border-gray-700 flex justify-between items-center">
                                         <span class="text-gray-300 font-medium">${p.name}</span>
                                         <div class="flex gap-2">
-                                            <button onclick="dashboard.deleteParticipant('${p.id}', '${p.name}')" class="text-deep-red hover:text-red-400 text-sm" title="Rimuovi">✕</button>
+                                            <button onclick="dashboard.deleteParticipant('${poll.id}', '${p.id}', '${p.name}')" class="text-deep-red hover:text-red-400 text-sm" title="Rimuovi">✕</button>
                                         </div>
                                     </div>
                                 `).join('') : '<p class="text-gray-500 italic">Nessun avventuriero ha risposto alla chiamata.</p>'}
@@ -499,10 +499,10 @@ class AdminDashboard {
         }
     }
 
-    async deleteParticipant(participantId, name) {
+    async deleteParticipant(pollId, participantId, name) {
         if (!confirm(`Rimuovere ${name} da questo sondaggio?`)) return;
         try {
-            const response = await fetch(`/api/participants/${participantId}`, { method: 'DELETE' });
+            const response = await fetch(`/api/admin/polls/${pollId}/participants/${participantId}`, { method: 'DELETE' });
             if (response.ok) {
                 // Refresh modal content (hacky reuse of renderPollDetailsModal with current ID?)
                 // Actually need pollId. But checking DOM for context or just reload dashboard?
@@ -556,7 +556,7 @@ class AdminDashboard {
         }
 
         try {
-            const response = await fetch(`/api/polls/${pollId}`, {
+            const response = await fetch(`/api/admin/polls/${pollId}`, {
                 method: 'DELETE'
             });
 

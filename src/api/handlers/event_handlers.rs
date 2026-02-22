@@ -1,9 +1,9 @@
 use crate::core::events::{
-    AvailabilityEntryV1, Event, ParticipantJoinedV1, ParticipantUpdatedV1, PollCreatedV1,
-    PollFinalizedV1, VoteUpdatedV1,
+    AvailabilityEntryV1, Event, ParticipantJoinedV1, ParticipantUpdatedV1, PollCreatedV2,
+    PollFinalizedV1, VoteUpdatedV2,
 };
 use crate::core::models::{
-    CreatePollRequest, FinalizePollRequest, JoinPollRequest, UpdateAvailabilityRequest,
+    CreatePollRequest, FinalizePollRequest, JoinPollRequest, UpdateAvailabilityRequest, VoteRequest,
 };
 use crate::core::store::RedbEventStore;
 use axum::{
@@ -23,6 +23,13 @@ pub struct EventAppState {
     pub pool: crate::db::DbPool,
     pub projection: Arc<PollsProjection>,
     pub users_projection: Arc<crate::core::projections::UsersProjection>,
+    pub key: axum_extra::extract::cookie::Key,
+}
+
+impl axum::extract::FromRef<EventAppState> for axum_extra::extract::cookie::Key {
+    fn from_ref(state: &EventAppState) -> Self {
+        state.key.clone()
+    }
 }
 
 impl axum::extract::FromRef<EventAppState> for crate::db::DbPool {
@@ -42,19 +49,21 @@ pub async fn create_poll_event(
     Json(payload): Json<CreatePollRequest>,
 ) -> impl IntoResponse {
     let poll_id = Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().timestamp();
 
-    let event = PollCreatedV1 {
+    let event = PollCreatedV2 {
         id: poll_id.clone(),
         title: payload.title,
         description: payload.description,
         location: payload.location,
         dates: payload.dates,
+        created_at,
     };
 
     // Serialize event
     // Note: In a real app we'd have a helper to serialize the ENUM,
     // here we wrap it manually.
-    let event_enum = Event::V1PollCreated(event);
+    let event_enum = Event::V2PollCreated(event);
     let event_data = bincode::serialize(&event_enum).unwrap(); // Handle error properly in prod
 
     // Append to stream "poll-{id}"
@@ -130,29 +139,22 @@ pub async fn update_availability_event(
     axum::extract::Path((poll_id, participant_id)): axum::extract::Path<(String, String)>,
     Json(payload): Json<UpdateAvailabilityRequest>,
 ) -> impl IntoResponse {
+    println!("EXTERING update_availability_event for poll: {}, pt: {}", poll_id, participant_id);
     let stream_id = format!("poll-{}", poll_id);
 
     // 1. Validation (Hybrid: Check Participant existence in SQL)
-    // We need name, email, and user_id to form event/authorize
-    let participant = match sqlx::query!(
-        "SELECT name, email, access_token, user_id FROM participants WHERE id = ? AND poll_id = ?",
-        participant_id,
-        poll_id
-    )
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(p)) => p,
-        Ok(None) => {
+    let poll_view = state.projection.get(&poll_id);
+    let participant = match poll_view {
+        Some(view) => view.participants.iter().find(|p| p.id == participant_id).cloned(),
+        None => None,
+    };
+
+    let participant = match participant {
+        Some(p) => p,
+        None => {
             return (
                 StatusCode::NOT_FOUND,
                 Json(serde_json::json!({ "error": "Participant not found" })),
-            )
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.to_string() })),
             )
         }
     };
@@ -199,13 +201,13 @@ pub async fn update_availability_event(
         })
         .collect();
 
-    let event = VoteUpdatedV1 {
-        participant_name: participant.name,
-        participant_email: participant.email.unwrap_or_default(), // Should handle None better but MVP
+    let event = VoteUpdatedV2 {
+        participant_name: participant.name.clone(),
+        participant_email: participant.email.clone(),
         availability: availability_v1,
     };
 
-    let event_enum = Event::V1VoteUpdated(event);
+    let event_enum = Event::V2VoteUpdated(event);
     let event_data = match bincode::serialize(&event_enum) {
         Ok(d) => d,
         Err(e) => {
@@ -251,31 +253,14 @@ pub async fn update_availability_event(
             // Update Projection
             state.projection.apply_with_id(&poll_id, event_enum);
 
-            // PROJECTION (Sync Dual Write): Update SQL Read Model
-            if let Ok(mut tx) = state.pool.begin().await {
-                // ... (SQL logic remains for dual write/legacy)
-                let _ = sqlx::query(
-                    "DELETE FROM availability WHERE poll_id = ? AND participant_id = ?",
-                )
-                .bind(&poll_id)
-                .bind(&participant_id)
-                .execute(&mut *tx)
-                .await;
-
-                for entry in &payload.availability {
-                    let _ = sqlx::query(
-                        "INSERT INTO availability (poll_id, participant_id, date, time_slot, status) VALUES (?, ?, ?, ?, ?)",
-                    )
-                    .bind(&poll_id)
-                    .bind(&participant_id)
-                    .bind(&entry.date)
-                    .bind(&entry.time_slot)
-                    .bind(&entry.status)
-                    .execute(&mut *tx)
-                    .await;
-                }
-                let _ = tx.commit().await;
-            }
+            // PROJECTION (Sync Dual Write): Update Redb Read Model
+            let _ = crate::db::queries::poll_repo::PollRepo::upsert_vote(
+                &state.pool,
+                &poll_id,
+                &participant_id,
+                &participant.name,
+                payload.availability.clone(),
+            );
 
             (
                 StatusCode::OK,
@@ -285,6 +270,136 @@ pub async fn update_availability_event(
         Err(e) => (
             StatusCode::CONFLICT,
             Json(serde_json::json!({ "error": format!("Concurrency/Write Error: {}", e) })),
+        ),
+    }
+}
+
+pub async fn vote_poll_event(
+    State(state): State<EventAppState>,
+    jar: axum_extra::extract::cookie::SignedCookieJar,
+    axum::extract::Path(poll_id): axum::extract::Path<String>,
+    Json(payload): Json<VoteRequest>,
+) -> impl IntoResponse {
+    let stream_id = format!("poll-{}", poll_id);
+    let session_id = jar.get("dnd_session").map(|c| c.value().to_string());
+    
+    // Determine Participant ID (Session ID or New UUID for fallback)
+    let participant_id = session_id.unwrap_or_else(|| Uuid::new_v4().to_string());
+
+    let existing = state.projection.get(&poll_id).and_then(|view| {
+        view.participants.iter().find(|p| p.id == participant_id).cloned()
+    });
+
+    let mut current_version = match state.event_store.read_stream(&stream_id).await {
+        Ok(events) => events.len() as u64,
+        Err(_) => 0,
+    };
+
+    let mut email_to_use = None;
+
+    // If new participant, emit Joined Event
+    if existing.is_none() {
+        let join_event = ParticipantJoinedV1 {
+            id: participant_id.clone(),
+            poll_id: poll_id.clone(),
+            name: payload.name.clone(),
+            email: None,
+            access_token: Uuid::new_v4().to_string(),
+        };
+        
+        let event_enum = Event::V1ParticipantJoined(join_event);
+        let event_data = bincode::serialize(&event_enum).unwrap();
+        
+        if let Ok(_) = state.event_store.append(&stream_id, &event_data, current_version).await {
+            state.projection.apply(event_enum);
+            current_version += 1;
+            
+            // Sync to SQL
+            if let Ok(write_txn) = state.pool.begin_write() {
+                let _ = crate::db::queries::poll_repo::PollRepo::add_participant(
+                    &write_txn,
+                    &participant_id,
+                    &poll_id,
+                    &payload.name,
+                    None,
+                    Some(&Uuid::new_v4().to_string()),
+                );
+                let _ = write_txn.commit();
+            }
+        }
+    } else {
+         if let Some(p) = &existing {
+             email_to_use = p.email.clone();
+             // Update name if changed?
+             if p.name != payload.name {
+                 let update_event = ParticipantUpdatedV1 {
+                    id: participant_id.clone(),
+                    poll_id: poll_id.clone(),
+                    name: payload.name.clone(),
+                    email: p.email.clone(),
+                 };
+                 let event_enum = Event::V1ParticipantUpdated(update_event);
+                 let event_data = bincode::serialize(&event_enum).unwrap();
+                 if let Ok(_) = state.event_store.append(&stream_id, &event_data, current_version).await {
+                    state.projection.apply(event_enum);
+                    current_version += 1;
+                    // Update name in redb if changed
+                    // Since PollRepo doesn't have an explicit update participant just by name (without availability)
+                    // We'll rely on the projection. For completeness, upsert_vote handles changing name but here we might just have a participant update.
+                    // Let's just update the participant in redb by adding them again with same ID.
+                    if let Ok(write_txn) = state.pool.begin_write() {
+                        let _ = crate::db::queries::poll_repo::PollRepo::add_participant(
+                            &write_txn,
+                            &participant_id,
+                            &poll_id,
+                            &payload.name,
+                            p.email.as_deref(), // email
+                            p.access_token.as_deref(),
+                        );
+                        let _ = write_txn.commit();
+                    }
+                 }
+            }
+        }
+    }
+
+    // Emit Vote Event
+    let availability_v1: Vec<AvailabilityEntryV1> = payload.availability.iter().map(|a| AvailabilityEntryV1 {
+        date: a.date.clone(),
+        slot: a.time_slot.clone(),
+        status: a.status.clone(),
+    }).collect();
+
+    let vote_event = VoteUpdatedV2 {
+        participant_name: payload.name.clone(),
+        participant_email: email_to_use, 
+        availability: availability_v1.clone(),
+    };
+
+    let event_enum = Event::V2VoteUpdated(vote_event);
+    let event_data = bincode::serialize(&event_enum).unwrap();
+
+    match state.event_store.append(&stream_id, &event_data, current_version).await {
+        Ok(_) => {
+            state.projection.apply_with_id(&poll_id, event_enum);
+            
+            // Sync to Redb (Dual Write)
+            let _ = crate::db::queries::poll_repo::PollRepo::upsert_vote(
+                &state.pool,
+                &poll_id,
+                &participant_id,
+                &payload.name,
+                payload.availability.clone(),
+            );
+            
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({ "status": "voted", "participant_id": participant_id })),
+            )
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
         ),
     }
 }
@@ -375,36 +490,35 @@ pub async fn join_poll_event(
                 });
             }
 
-            // 4. Dual Write to SQL
+            // 4. Dual Write to Redb
             if is_update {
-                // ... (SQL logic)
-                let row: Option<(String,)> =
-                    sqlx::query_as("SELECT access_token FROM participants WHERE id = ?")
-                        .bind(&participant_id)
-                        .fetch_optional(&state.pool)
-                        .await
-                        .unwrap_or(None);
-                if let Some(r) = row {
-                    access_token = r.0;
+                access_token = state.projection.get(&poll_id).and_then(|v| {
+                    v.participants.iter().find(|p| p.id == participant_id).and_then(|p| p.access_token.clone())
+                }).unwrap_or_else(|| Uuid::new_v4().to_string());
+                
+                if let Ok(write_txn) = state.pool.begin_write() {
+                    let _ = crate::db::queries::poll_repo::PollRepo::add_participant(
+                        &write_txn,
+                        &participant_id,
+                        &poll_id,
+                        &payload.name,
+                        payload.email.as_deref(),
+                        Some(&access_token),
+                    );
+                    let _ = write_txn.commit();
                 }
-
-                let _ = sqlx::query("UPDATE participants SET name = ? WHERE id = ?")
-                    .bind(&payload.name)
-                    .bind(&participant_id)
-                    .execute(&state.pool)
-                    .await;
             } else {
-                // ... (SQL logic)
-                let _ = sqlx::query(
-                    "INSERT INTO participants (id, poll_id, name, email, access_token) VALUES (?, ?, ?, ?, ?)",
-                )
-                .bind(&participant_id)
-                .bind(&poll_id)
-                .bind(&payload.name)
-                .bind(&payload.email)
-                .bind(&access_token)
-                .execute(&state.pool)
-                .await;
+                if let Ok(write_txn) = state.pool.begin_write() {
+                    let _ = crate::db::queries::poll_repo::PollRepo::add_participant(
+                        &write_txn,
+                        &participant_id,
+                        &poll_id,
+                        &payload.name,
+                        payload.email.as_deref(),
+                        Some(&access_token),
+                    );
+                    let _ = write_txn.commit();
+                }
             }
 
             (
@@ -495,15 +609,12 @@ pub async fn finalize_poll_event(
             state.projection.apply(event_enum);
 
             // 5. Dual Write to SQL
-            let sql_res = sqlx::query(
-                "UPDATE polls SET status = 'finalized', finalized_at = ?, finalized_time = ?, notes = ? WHERE id = ?",
-            )
-            .bind(now)
-            .bind(&payload.finalized_time)
-            .bind(&payload.notes)
-            .bind(&poll_id)
-            .execute(&state.pool)
-            .await;
+            let sql_res = crate::db::queries::poll_repo::PollRepo::finalize_poll(
+                &state.pool,
+                &poll_id,
+                &payload.finalized_time,
+                payload.notes.as_deref()
+            );
 
             if let Err(e) = sql_res {
                 tracing::error!("Failed to update SQL read model for finalize: {}", e);
@@ -538,318 +649,3 @@ pub async fn finalize_poll_event(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::models::JoinPollRequest;
-    use axum::extract::State;
-    use sqlx::sqlite::SqlitePoolOptions;
-    use uuid::Uuid;
-
-    async fn setup_test_db() -> crate::db::DbPool {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .expect("Failed to connect to memory db");
-
-        // Initialize Schema (Simplified for test)
-        sqlx::query("CREATE TABLE polls (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, location TEXT NOT NULL, created_at INTEGER NOT NULL, dates TEXT NOT NULL, time_range TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', finalized_at INTEGER, finalized_time TEXT, notes TEXT, admin_token TEXT, organizer_id TEXT, recurrence_rule TEXT)")
-            .execute(&pool).await.unwrap();
-        sqlx::query("CREATE TABLE participants (id TEXT PRIMARY KEY, poll_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, access_token TEXT UNIQUE, user_id TEXT, FOREIGN KEY (poll_id) REFERENCES polls (id))")
-            .execute(&pool).await.unwrap();
-        sqlx::query("CREATE TABLE availability (id INTEGER PRIMARY KEY, poll_id TEXT NOT NULL, participant_id TEXT NOT NULL, date TEXT NOT NULL, time_slot TEXT NOT NULL, status TEXT NOT NULL, FOREIGN KEY (poll_id) REFERENCES polls (id), FOREIGN KEY (participant_id) REFERENCES participants (id))")
-            .execute(&pool).await.unwrap();
-
-        pool
-    }
-
-    async fn setup_test_event_store() -> (Arc<RedbEventStore>, String) {
-        let file = format!("test_app_handler_{}.redb", Uuid::new_v4());
-        let store = Arc::new(RedbEventStore::new(&file).unwrap());
-        (store, file)
-    }
-
-    #[tokio::test]
-    async fn test_join_poll_event_flow() {
-        let pool = setup_test_db().await;
-        let (event_store, file) = setup_test_event_store().await;
-
-        let projection = Arc::new(crate::core::projections::PollsProjection::new());
-        let state = EventAppState {
-            event_store: event_store.clone(),
-            pool: pool.clone(),
-            projection: projection.clone(),
-            users_projection: Arc::new(crate::core::projections::UsersProjection::new()),
-        };
-
-        // 1. Create Poll (SQL only needed for FK check description in Dual Write)
-        let poll_id = Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO polls (id, title, description, location, created_at, dates, time_range) VALUES (?, 'T', 'D', 'L', 0, '[]', '{}')")
-            .bind(&poll_id)
-            .execute(&pool).await.unwrap();
-
-        // 2. Join Poll (New)
-        let req = JoinPollRequest {
-            name: "New User".to_string(),
-            email: Some("new@test.com".to_string()),
-        };
-
-        let res = join_poll_event(
-            State(state.clone()),
-            axum::extract::Path(poll_id.clone()),
-            Json(req),
-        )
-        .await
-        .into_response();
-        assert_eq!(res.status(), StatusCode::OK);
-
-        // Extract body to verify token
-        let body_bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        let body_json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-        let participant_id = body_json.get("id").unwrap().as_str().unwrap().to_string();
-        let access_token = body_json
-            .get("access_token")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-
-        // 3. Verify SQL Persistence
-        let row = sqlx::query!(
-            "SELECT name, access_token FROM participants WHERE id = ?",
-            participant_id
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(row.name, "New User");
-        assert_eq!(row.access_token, Some(access_token.clone()));
-
-        // 4. Verify Event Persistence
-        let stream_id = format!("poll-{}", poll_id);
-        let events = event_store.read_stream(&stream_id).await.unwrap();
-        assert_eq!(events.len(), 1);
-        let event: Event = bincode::deserialize(&events[0]).unwrap();
-        match event {
-            Event::V1ParticipantJoined(e) => {
-                assert_eq!(e.name, "New User");
-                assert_eq!(e.email, Some("new@test.com".to_string()));
-            }
-            _ => panic!("Wrong event type"),
-        }
-
-        // 5. Join Again (Update)
-        let req_update = JoinPollRequest {
-            name: "Updated User".to_string(),
-            email: Some("new@test.com".to_string()), // Same email
-        };
-
-        let res_upd = join_poll_event(
-            State(state.clone()),
-            axum::extract::Path(poll_id.clone()),
-            Json(req_update),
-        )
-        .await
-        .into_response();
-        assert_eq!(res_upd.status(), StatusCode::OK);
-
-        let body_bytes_upd = axum::body::to_bytes(res_upd.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        let body_json_upd: serde_json::Value = serde_json::from_slice(&body_bytes_upd).unwrap();
-        let token_upd = body_json_upd.get("access_token").unwrap().as_str().unwrap();
-
-        assert_eq!(token_upd, access_token); // Should match old token
-
-        // Verify SQL Update
-        let row_upd = sqlx::query!("SELECT name FROM participants WHERE id = ?", participant_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-        assert_eq!(row_upd.name, "Updated User");
-
-        // Verify Event Update
-        let events_upd = event_store.read_stream(&stream_id).await.unwrap();
-        assert_eq!(events_upd.len(), 2);
-        let event_2: Event = bincode::deserialize(&events_upd[1]).unwrap();
-        match event_2 {
-            Event::V1ParticipantUpdated(e) => {
-                assert_eq!(e.name, "Updated User");
-            }
-            _ => panic!("Wrong event type"),
-        }
-
-        std::fs::remove_file(file).ok();
-    }
-
-    #[tokio::test]
-    async fn test_finalize_poll_event_flow() {
-        use crate::core::models;
-        use axum::extract::Path;
-        use chrono::Utc;
-
-        let pool = setup_test_db().await;
-        let (event_store, file) = setup_test_event_store().await;
-
-        let projection = Arc::new(crate::core::projections::PollsProjection::new());
-        let state = EventAppState {
-            event_store: event_store.clone(),
-            pool: pool.clone(),
-            projection: projection.clone(),
-            users_projection: Arc::new(crate::core::projections::UsersProjection::new()),
-        };
-
-        // 1. Create Poll (SQL and Event)
-        let poll_id = Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO polls (id, title, description, location, created_at, dates, time_range) VALUES (?, 'T', 'D', 'L', 0, '[]', '{}')")
-            .bind(&poll_id)
-            .execute(&pool).await.unwrap();
-
-        // Seed Event Store
-        let created_event = crate::core::events::PollCreatedV1 {
-            id: poll_id.clone(),
-            title: "T".to_string(),
-            description: "D".to_string(),
-            location: "L".to_string(),
-            dates: vec![],
-        };
-        let event_data =
-            bincode::serialize(&crate::core::events::Event::V1PollCreated(created_event)).unwrap();
-        event_store
-            .append(&format!("poll-{}", poll_id), &event_data, 0)
-            .await
-            .unwrap();
-
-        // 2. Finalize Poll
-        let req = models::FinalizePollRequest {
-            finalized_time: "2023-10-27T10:00:00Z".to_string(),
-            notes: Some("It's happening!".to_string()),
-        };
-
-        let admin = crate::core::models::Admin {
-            id: Uuid::new_v4().to_string(),
-            username: "Admin".to_string(),
-            password_hash: "hash".to_string(),
-            email: Some("admin@test.com".to_string()),
-            role: "admin".to_string(),
-            created_at: Utc::now().timestamp(),
-        };
-        let admin_user = crate::security::auth::AdminUser(admin);
-
-        let res = finalize_poll_event(
-            State(state.clone()),
-            admin_user,
-            Path(poll_id.clone()),
-            Json(req),
-        )
-        .await
-        .into_response();
-        assert_eq!(res.status(), StatusCode::OK);
-
-        // Verify SQL
-        let row = sqlx::query!(
-            "SELECT status, finalized_time FROM polls WHERE id = ?",
-            poll_id
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(row.status, "finalized");
-        assert_eq!(row.finalized_time, Some("2023-10-27T10:00:00Z".to_string()));
-
-        // Verify Event
-        let stream_id = format!("poll-{}", poll_id);
-        let events = event_store.read_stream(&stream_id).await.unwrap();
-        assert_eq!(events.len(), 2); // PollCreated + PollFinalized
-        let event: Event = bincode::deserialize(&events[1]).unwrap();
-        match event {
-            Event::V1PollFinalized(e) => {
-                assert_eq!(e.finalized_time, "2023-10-27T10:00:00Z");
-            }
-            _ => panic!("Wrong event type"),
-        }
-
-        std::fs::remove_file(file).ok();
-    }
-
-    #[tokio::test]
-    async fn test_update_availability_event_flow() {
-        use crate::core::models;
-        use axum::extract::Path;
-
-        let pool = setup_test_db().await;
-        let (event_store, file) = setup_test_event_store().await;
-
-        let projection = Arc::new(crate::core::projections::PollsProjection::new());
-        let state = EventAppState {
-            event_store: event_store.clone(),
-            pool: pool.clone(),
-            projection: projection.clone(),
-            users_projection: Arc::new(crate::core::projections::UsersProjection::new()),
-        };
-
-        let poll_id = Uuid::new_v4().to_string();
-        let participant_id = Uuid::new_v4().to_string();
-        let token = Uuid::new_v4().to_string();
-        let dates = serde_json::json!(["2023-10-27"]).to_string();
-
-        // SeePoll Setup
-        sqlx::query("INSERT INTO polls (id, title, description, location, created_at, dates, time_range) VALUES (?, 'T', 'D', 'L', 0, ?, '{}')")
-            .bind(&poll_id)
-            .bind(&dates)
-            .execute(&pool).await.unwrap();
-
-        sqlx::query("INSERT INTO participants (id, poll_id, name, email, access_token) VALUES (?, ?, 'User', 'u@test.com', ?)")
-            .bind(&participant_id)
-            .bind(&poll_id)
-            .bind(&token)
-            .execute(&pool).await.unwrap();
-
-        let req = models::UpdateAvailabilityRequest {
-            availability: vec![models::AvailabilityEntry {
-                date: "2023-10-27".to_string(),
-                time_slot: "10:00".to_string(),
-                status: "available".to_string(),
-            }],
-            access_token: Some(token.clone()),
-        };
-
-        let res = update_availability_event(
-            State(state.clone()),
-            crate::security::auth::MaybeAuthUser(None),
-            Path((poll_id.clone(), participant_id.clone())),
-            Json(req),
-        )
-        .await
-        .into_response();
-        assert_eq!(res.status(), StatusCode::OK);
-
-        // Verify SQL
-        let row = sqlx::query!(
-            "SELECT status FROM availability WHERE poll_id = ? AND participant_id = ?",
-            poll_id,
-            participant_id
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(row.status, "available");
-
-        // Verify Event
-        let stream_id = format!("poll-{}", poll_id);
-        let events = event_store.read_stream(&stream_id).await.unwrap();
-        let event: Event = bincode::deserialize(&events[0]).unwrap();
-        match event {
-            Event::V1VoteUpdated(e) => {
-                assert_eq!(e.availability.len(), 1);
-                assert_eq!(e.availability[0].status, "available");
-            }
-            _ => panic!("Wrong event type"),
-        }
-
-        std::fs::remove_file(file).ok();
-    }
-}

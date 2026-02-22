@@ -1,4 +1,4 @@
-use crate::core::events::{Event, VoteUpdatedV1};
+use crate::core::events::{Event, VoteUpdatedV2};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ pub struct PollAggregate {
     pub description: String,
     pub location: String,
     pub dates: Vec<String>,
-    pub votes: Vec<VoteUpdatedV1>,
+    pub votes: Vec<VoteUpdatedV2>,
     pub participants: Vec<ParticipantState>,
     pub status: String,
     pub finalized_at: Option<i64>,
@@ -41,7 +41,33 @@ impl PollAggregate {
                 self.status = "active".to_string(); // Default status
                 self.version += 1;
             }
+            Event::V2PollCreated(e) => {
+                self.id = e.id;
+                self.title = e.title;
+                self.description = e.description;
+                self.location = e.location;
+                self.dates = e.dates;
+                self.status = "active".to_string(); // Default status
+                self.version += 1;
+            }
             Event::V1VoteUpdated(e) => {
+                let v2_equiv = VoteUpdatedV2 {
+                    participant_name: e.participant_name,
+                    participant_email: Some(e.participant_email),
+                    availability: e.availability,
+                };
+                if let Some(existing) = self
+                    .votes
+                    .iter_mut()
+                    .find(|v| v.participant_email == v2_equiv.participant_email)
+                {
+                    *existing = v2_equiv;
+                } else {
+                    self.votes.push(v2_equiv);
+                }
+                self.version += 1;
+            }
+            Event::V2VoteUpdated(e) => {
                 // If participant already voted, replace their vote
                 if let Some(existing) = self
                     .votes

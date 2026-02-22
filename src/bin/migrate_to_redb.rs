@@ -1,5 +1,5 @@
 use dnd_scheduler::core::events::{
-    AvailabilityEntryV1, Event, ParticipantJoinedV1, PollCreatedV1, PollFinalizedV1, VoteUpdatedV1,
+    AvailabilityEntryV1, Event, ParticipantJoinedV1, PollCreatedV2, PollFinalizedV1, VoteUpdatedV2,
 };
 use dnd_scheduler::core::models::{Availability, Participant, Poll};
 use dnd_scheduler::core::store::RedbEventStore;
@@ -49,12 +49,13 @@ async fn main() -> anyhow::Result<()> {
 
         let dates: Vec<String> = serde_json::from_str(&poll.dates).unwrap_or_default();
 
-        let event_created = Event::V1PollCreated(PollCreatedV1 {
+        let event_created = Event::V2PollCreated(PollCreatedV2 {
             id: poll.id.clone(),
             title: poll.title.clone(),
             description: poll.description.clone(),
             location: poll.location.clone(),
             dates: dates.clone(),
+            created_at: 0, // Fallback, could adjust to poll.created_at if parsed, let's just use 0 for migration compat.
         });
 
         let data = bincode::serialize(&event_created)?;
@@ -129,9 +130,9 @@ async fn main() -> anyhow::Result<()> {
         for (p_id, entries) in votes_by_participant {
             // Find participant details
             if let Some(p) = participants.iter().find(|p| p.id == p_id) {
-                let event_vote = Event::V1VoteUpdated(VoteUpdatedV1 {
+                let event_vote = Event::V2VoteUpdated(VoteUpdatedV2 {
                     participant_name: p.name.clone(),
-                    participant_email: p.email.clone().unwrap_or_default(),
+                    participant_email: p.email.clone(),
                     availability: entries,
                 });
 

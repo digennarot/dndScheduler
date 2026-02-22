@@ -11,6 +11,16 @@ pub struct PollCreatedV1 {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PollCreatedV2 {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub location: String,
+    pub dates: Vec<String>,
+    pub created_at: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AvailabilityEntryV1 {
     pub date: String,
     pub slot: String,
@@ -21,6 +31,13 @@ pub struct AvailabilityEntryV1 {
 pub struct VoteUpdatedV1 {
     pub participant_name: String,
     pub participant_email: String,
+    pub availability: Vec<AvailabilityEntryV1>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VoteUpdatedV2 {
+    pub participant_name: String,
+    pub participant_email: Option<String>,
     pub availability: Vec<AvailabilityEntryV1>,
 }
 
@@ -39,6 +56,12 @@ pub struct ParticipantUpdatedV1 {
     pub poll_id: String,
     pub name: String,
     pub email: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ParticipantRemovedV1 {
+    pub poll_id: String,
+    pub participant_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,9 +124,12 @@ pub struct PollDeletedV1 {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Event {
     V1PollCreated(PollCreatedV1),
+    V2PollCreated(PollCreatedV2),
     V1VoteUpdated(VoteUpdatedV1),
+    V2VoteUpdated(VoteUpdatedV2),
     V1ParticipantJoined(ParticipantJoinedV1),
     V1ParticipantUpdated(ParticipantUpdatedV1),
+    V1ParticipantRemoved(ParticipantRemovedV1),
     V1PollFinalized(PollFinalizedV1),
     V1PollDeleted(PollDeletedV1),
     V1UserRegistered(UserRegisteredV1),

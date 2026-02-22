@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dndrs - Design Directions Explored</title>
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: {
+                            900: '#0B0F19',
+                            800: '#0F172A',
+                            700: '#1E293B'
+                        },
+                        arcane: {
+                            DEFAULT: '#8B5CF6',
+                            hover: '#7C3AED',
+                            light: '#A78BFA'
+                        },
+                        gold: {
+                            DEFAULT: '#FBBF24',
+                            glow: 'rgba(251, 191, 36, 0.5)'
+                        },
+                        ember: '#EF4444',
+                        parchment: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Cinzel', 'serif'],
+                        altSans: ['Roboto', 'sans-serif'],
+                        altSerif: ['Playfair Display', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0F172A; color: #F8FAFC; margin: 0; padding: 0; font-family: 'Inter', sans-serif;}
+        
+        .mockup-container {
+            width: 375px; 
+            height: 812px; 
+            border-radius: 40px;
+            overflow: hidden;
+            border: 8px solid #334155;
+            position: relative;
+            background-color: #0B0F19;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            margin: 0 auto;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
+            border-color: #FBBF24;
+        }
+
+        /* Hide scrollbar for grid */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="font-serif text-4xl text-gold mb-2">dndrs Design Directions</h1>
+            <p class="text-gray-400 max-w-2xl mx-auto">Exploring visual variations for the "Magic Link" Mobile Player view. All use the core Arcane Tech color palette but play with layout, component weight, and typography.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 justify-center">
+
+            <!-- DIRECTION 1: The Artifact (Heavy Theme) -->
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-4">1. The "Artifact" (Heavy Theme)</h2>
+                <div class="mockup-container font-sans bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]">
+                    <!-- Progress Bar -->
+                    <div class="absolute top-0 w-full h-2 bg-gray-800">
+                        <div class="h-full bg-arcane w-2/4 transition-all duration-500"></div>
+                    </div>
+                    
+                    <div class="p-6 pt-12 flex flex-col h-full">
+                        <div class="text-center mb-6">
+                            <h3 class="font-serif text-2xl text-gold mb-1 track-wider">Curse of Strahd</h3>
+                            <p class="text-sm text-gray-400">Welcome back, Jordan. 2/4 Ready.</p>
+                        </div>
+
+                        <!-- Grid Area -->
+                        <div class="flex-grow glass-panel rounded-2xl p-4 overflow-y-auto no-scrollbar">
+                            <div class="text-xs text-gray-400 mb-4 tracking-widest uppercase">Select Availability</div>
+                            
+                            <!-- Day Column approach -->
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="font-bold mb-2">SAT, OCT 28</div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button class="bg-obsidian-800 border border-gray-700 rounded-lg p-3 text-sm hover:border-arcane transition flex items-center justify-center">18:00</button>
+                                        <button class="bg-obsidian-800 border border-gold gold-glow text-gold rounded-lg p-3 text-sm flex items-center justify-center font-bold">19:00</button>
+                                        <button class="bg-obsidian-800 border border-gray-700 rounded-lg p-3 text-sm hover:border-arcane transition flex items-center justify-center">20:00</button>
+                                        <button class="bg-obsidian-800 border border-gray-700 opacity-50 rounded-lg p-3 text-sm flex items-center justify-center line-through decoration-ember">21:00</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="font-bold mb-2 mt-4">SUN, OCT 29</div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button class="bg-obsidian-800 border border-gray-700 rounded-lg p-3 text-sm hover:border-arcane transition flex items-center justify-center">14:00</button>
+                                        <button class="bg-obsidian-800 border border-gray-700 rounded-lg p-3 text-sm hover:border-arcane transition flex items-center justify-center">15:00</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Action -->
+                        <div class="mt-6">
+                            <button class="w-full bg-arcane hover:bg-arcane-hover text-white font-serif tracking-widest py-4 rounded-xl shadow-[0_0_15px_rgba(139,92,246,0.3)] transition transform hover:scale-[1.02]">CAST SPELL</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm text-gray-400 max-w-sm text-center">
+                    Uses Cinzel/Inter. Very thematic, textured background. Emphasizes the "D&D" feel over raw utility. Grid is chunky and button-based.
+                </div>
+            </div>
+
+             <!-- DIRECTION 2: The "Terminal" (Minimal/Speed) -->
+             <div class="flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-4">2. The "Terminal" (Speed Focused)</h2>
+                <div class="mockup-container bg-obsidian-900 font-altSans">
+                    <!-- Progress Bar -->
+                    <div class="p-6 pb-2 border-b border-gray-800 flex justify-between items-center">
+                       <span class="font-mono text-xs text-arcane">QUORUM: 2/4</span>
+                       <div class="flex gap-1">
+                           <div class="w-2 h-2 rounded-full bg-gold"></div>
+                           <div class="w-2 h-2 rounded-full bg-gold"></div>
+                           <div class="w-2 h-2 rounded-full bg-gray-700"></div>
+                           <div class="w-2 h-2 rounded-full bg-gray-700"></div>
+                       </div>
+                    </div>
+                    
+                    <div class="p-6 flex flex-col h-full">
+                        <div class="mb-6">
+                            <h3 class="font-bold text-2xl mb-1">Curse of Strahd</h3>
+                            <p class="text-gray-400">Jordan, swipe to select.</p>
+                        </div>
+
+                        <!-- Grid Area (Heatmap style) -->
+                        <div class="flex-grow overflow-hidden relative">
+                            <!-- Overlay gradient -->
+                            <div class="absolute inset-0 pointer-events-none z-10 border-t border-b border-gray-800 flex items-center">
+                                <div class="w-full h-12 bg-gray-800/30 border-y border-arcane/30"></div>
+                            </div>
+                            
+                            <div class="flex h-full no-scrollbar overflow-x-auto gap-4 py-8">
+                                <!-- Day Column -->
+                                <div class="flex flex-col gap-1 w-20 flex-shrink-0">
+                                    <div class="text-center font-mono text-xs text-gray-500 mb-2">SAT 28</div>
+                                    <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">18:00</div>
+                                    <div class="h-10 rounded bg-gold/20 border border-gold text-gold flex items-center justify-center text-xs font-bold shadow-[0_0_10px_rgba(251,191,36,0.3)]">19:00</div>
+                                    <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">20:00</div>
+                                    <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">21:00</div>
+                                    <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">22:00</div>
+                                </div>
+                                 <div class="flex flex-col gap-1 w-20 flex-shrink-0">
+                                    <div class="text-center font-mono text-xs text-gray-500 mb-2">SUN 29</div>
+                                    <div class="h-10 rounded inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(239,68,68,0.1)_5px,rgba(239,68,68,0.1)_10px)] border border-gray-800 flex items-center justify-center text-xs text-gray-600 line-through">14:00</div>
+                                    <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">15:00</div>
+                                    <div class="h-10 rounded bg-gold/20 border border-gold text-gold flex items-center justify-center text-xs font-bold shadow-[0_0_10px_rgba(251,191,36,0.3)]">16:00</div>
+                                    <div class="h-10 rounded bg-gold/20 border border-gold text-gold flex items-center justify-center text-xs font-bold shadow-[0_0_10px_rgba(251,191,36,0.3)]">17:00</div>
+                                </div>
+                                <div class="flex flex-col gap-1 w-20 flex-shrink-0 opacity-50">
+                                    <div class="text-center font-mono text-xs text-gray-500 mb-2">MON 30</div>
+                                      <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">18:00</div>
+                                      <div class="h-10 rounded bg-obsidian-800 border border-gray-800 flex items-center justify-center text-xs text-gray-500">19:00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Action -->
+                        <div class="mt-4 pt-4 border-t border-gray-800">
+                            <button class="w-full bg-parchment text-obsidian-900 font-bold py-4 rounded-xl hover:bg-white transition flex justify-center items-center gap-2">
+                                SUBMIT <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                 <div class="mt-4 text-sm text-gray-400 max-w-sm text-center">
+                    Uses Roboto/Mono. Highly utilitarian. Matrix/Heatmap layout meant for rapid "painting". Feels more like a fast tool than a game.
+                </div>
+            </div>
+
+            <!-- DIRECTION 3: The "Modern Lobby" (Balanced) -->
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-4">3. The "Modern Lobby" (Balanced)</h2>
+                <div class="mockup-container font-sans bg-obsidian-900 border-none shadow-[0_0_40px_rgba(139,92,246,0.2)]">
+                    
+                    <!-- Top Graphic Header -->
+                    <div class="h-32 bg-gradient-to-br from-arcane-hover to-obsidian-900 relative p-6 flex flex-col justify-end">
+                        <div class="absolute top-4 right-4 bg-black/50 backdrop-blur rounded-full px-3 py-1 text-xs font-bold text-gold border border-gold/30">
+                            QUORUM 2/4
+                        </div>
+                        <h3 class="font-serif text-3xl font-bold text-white leading-tight">Curse of Strahd</h3>
+                    </div>
+                    
+                    <div class="p-6 flex flex-col h-[calc(100%-8rem)]">
+                        <div class="mb-4 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-arcane/20 border border-arcane flex items-center justify-center font-bold text-arcane">J</div>
+                            <p class="text-sm font-medium">Ready up, Jordan.</p>
+                        </div>
+
+                        <!-- Grid Area (Card Based) -->
+                        <div class="flex-grow overflow-y-auto no-scrollbar pb-6 space-y-3">
+                            
+                            <!-- Saturday Card -->
+                            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-600"></div>
+                                <div class="font-bold mb-3 flex justify-between items-center">
+                                    <span>Saturday, Oct 28</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                     <button class="px-4 py-2 rounded-full bg-obsidian-800 border border-gray-700 text-sm">18:00</button>
+                                     <button class="px-4 py-2 rounded-full bg-gold/10 border-2 border-gold text-gold font-bold text-sm shadow-[0_0_15px_rgba(251,191,36,0.2)]">19:00</button>
+                                     <button class="px-4 py-2 rounded-full bg-obsidian-800 border border-gray-700 text-sm">20:00</button>
+                                </div>
+                            </div>
+
+                            <!-- Sunday Card -->
+                            <div class="glass-panel p-4 rounded-2xl relative overflow-hidden border-arcane/50 shadow-[0_0_20px_rgba(139,92,246,0.1)]">
+                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-arcane"></div>
+                                <div class="font-bold mb-3 text-arcane-light flex justify-between items-center">
+                                    <span>Sunday, Oct 29</span>
+                                    <span class="text-xs bg-arcane/20 text-arcane px-2 py-0.5 rounded">Popular</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                     <button class="px-4 py-2 rounded-full bg-obsidian-800 border border-gray-700 text-sm">14:00</button>
+                                     <button class="px-4 py-2 rounded-full bg-gold/10 border-2 border-gold text-gold font-bold text-sm">15:00</button>
+                                     <button class="px-4 py-2 rounded-full bg-gold/10 border-2 border-gold text-gold font-bold text-sm shadow-[0_0_15px_rgba(251,191,36,0.2)]">16:00</button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Sticky Bottom Action -->
+                        <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-obsidian-900 via-obsidian-900 to-transparent pt-12">
+                            <button class="w-full bg-gold text-obsidian-900 font-bold py-4 rounded-xl hover:bg-yellow-300 transition shadow-[0_0_20px_rgba(251,191,36,0.4)]">BATTLE READY</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm text-gray-400 max-w-sm text-center">
+                    Uses Cinzel header / Inter body. Balances beauty and speed. Uses cards instead of strict grids. Very Overwatch/Lobby inspired.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

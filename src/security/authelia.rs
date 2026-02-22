@@ -47,7 +47,7 @@ pub fn get_authelia_logout_url() -> Option<String> {
 // ============================================================================
 
 /// User information extracted from Authelia headers
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub struct AutheliaUserInfo {
     /// User's email (from Remote-User or Remote-Email header)
     pub email: String,
@@ -125,31 +125,21 @@ pub async fn sync_authelia_user(pool: &DbPool, info: &AutheliaUserInfo) -> Resul
     let now = Utc::now().timestamp();
 
     // Check if user exists
-    let existing_user: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = ?")
-        .bind(&info.email)
-        .fetch_optional(pool)
-        .await
+    let existing_user = crate::db::queries::user_repo::UserRepo::find_by_email(pool, &info.email)
         .map_err(|e| format!("Database error: {}", e))?;
 
     if let Some(mut user) = existing_user {
         // Update last login and name if changed
         let new_name = info.display_name();
-        let role = if info.is_admin() { "admin" } else { &user.role };
-
-        sqlx::query("UPDATE users SET last_login = ?, name = ?, role = ? WHERE id = ?")
-            .bind(now)
-            .bind(&new_name)
-            .bind(role)
-            .bind(&user.id)
-            .execute(pool)
-            .await
-            .map_err(|e| format!("Failed to update user: {}", e))?;
-
+        
         user.last_login = Some(now);
         user.name = new_name;
         if info.is_admin() {
             user.role = "admin".to_string();
         }
+
+        crate::db::queries::user_repo::UserRepo::create_or_update(pool, &user)
+            .map_err(|e| format!("Failed to update user: {}", e))?;
 
         Ok(user)
     } else {
@@ -162,19 +152,22 @@ pub async fn sync_authelia_user(pool: &DbPool, info: &AutheliaUserInfo) -> Resul
         // This user won't be able to login with password (only via SSO)
         let placeholder_hash = "$authelia_sso$";
 
-        sqlx::query(
-            "INSERT INTO users (id, email, password_hash, name, role, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&user_id)
-        .bind(&info.email)
-        .bind(placeholder_hash)
-        .bind(&name)
-        .bind(role)
-        .bind(now)
-        .bind(now)
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Failed to create user: {}", e))?;
+        let user = User {
+            id: user_id.clone(),
+            email: info.email.clone(),
+            password_hash: placeholder_hash.to_string(),
+            name,
+            role: role.to_string(),
+            created_at: now,
+            last_login: Some(now),
+            phone: None,
+            consent_marketing: false,
+            consent_analytics: false,
+            privacy_policy_accepted_at: None,
+        };
+
+        crate::db::queries::user_repo::UserRepo::create_or_update(pool, &user)
+            .map_err(|e| format!("Failed to create user: {}", e))?;
 
         // Log the auto-creation
         crate::audit::log_audit(
@@ -191,16 +184,7 @@ pub async fn sync_authelia_user(pool: &DbPool, info: &AutheliaUserInfo) -> Resul
         )
         .await;
 
-        Ok(User {
-            id: user_id,
-            email: info.email.clone(),
-            password_hash: placeholder_hash.to_string(),
-            name,
-            role: role.to_string(),
-            created_at: now,
-            last_login: Some(now),
-            phone: None,
-        })
+        Ok(user)
     }
 }
 
@@ -209,9 +193,9 @@ pub async fn sync_authelia_user(pool: &DbPool, info: &AutheliaUserInfo) -> Resul
 // ============================================================================
 
 /// Error response for JSON
-#[derive(Serialize)]
+#[derive(Serialize, serde::Deserialize)]
 pub struct ErrorResponse {
-    error: String,
+    pub error: String,
 }
 
 /// Authenticated user from Authelia headers (with fallback to Bearer token)
