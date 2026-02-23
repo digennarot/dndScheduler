@@ -1,14 +1,15 @@
 use crate::core::models::*;
 use crate::db::DbPool;
 use axum::{
-    extract::{Extension, FromRef, Path, State},
-    http::StatusCode,
+    extract::{ConnectInfo, Extension, FromRef, Path, State},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::Utc;
 use serde::Serialize;
+use std::net::SocketAddr;
 use uuid::Uuid;
 
 // Error response for JSON
@@ -369,6 +370,10 @@ pub async fn login(
     Extension(users_projection): Extension<
         std::sync::Arc<crate::core::projections::UsersProjection>,
     >,
+    // SEC-02: Optional ConnectInfo — not available in test harnesses or when not using
+    // `into_make_service_with_connect_info`. Fallback chain uses X-Forwarded-For then 127.0.0.1.
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    headers: HeaderMap,
     Json(payload): Json<UserLoginRequest>,
 ) -> Result<Json<UserAuthResponse>, Response> {
     // Validate inputs
@@ -414,14 +419,23 @@ pub async fn login(
         false
     };
 
-    // Handle Login Attempt
-    let ip_address = "unknown"; // In a real app, extract from request headers
+    // SEC-02: Extract real client IP — prefer X-Forwarded-For (behind proxy),
+    // fallback to direct socket address from ConnectInfo, then "unavailable" for test contexts.
+    let ip_address: String = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| headers.get("x-real-ip").and_then(|v| v.to_str().ok()).map(|s| s.to_string()))
+        .or_else(|| connect_info.map(|ci| ci.0.ip().to_string()))
+        .unwrap_or_else(|| "unavailable".to_string());
+
     let _ = crate::db::queries::auth_repo::AuthRepo::record_login_attempt(
         &pool,
         &payload.email,
         now,
         password_valid,
-        ip_address,
+        &ip_address,
     );
 
     if !password_valid {
@@ -759,10 +773,31 @@ pub async fn login_google(
         }
     };
 
-    // Return the SAME Google Token as the session token (Stateless)
-    // The client will send this token back in headers
+    // SEC-01: Create a proper server-side session instead of returning the raw Google id_token.
+    // This enables server-side revocation (logout, admin kick) and consistent session lifetime.
+    let session_token = Uuid::new_v4().to_string();
+    let now_session = Utc::now().timestamp();
+    let expires_at = Utc::now()
+        .checked_add_signed(chrono::Duration::hours(SESSION_DURATION_HOURS))
+        .ok_or(json_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to calculate session expiration",
+        ))?
+        .timestamp();
+
+    let session = crate::core::models::UserSession {
+        id: Uuid::new_v4().to_string(),
+        user_id: user.id.clone(),
+        token: session_token.clone(),
+        expires_at,
+        created_at: now_session,
+    };
+
+    crate::db::queries::admin_repo::SessionRepo::create_user_session(&pool, &session)
+        .map_err(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session"))?;
+
     Ok(Json(UserAuthResponse {
-        token: payload.credential,
+        token: session_token,
         user: user.into(),
     }))
 }
@@ -847,7 +882,8 @@ pub async fn delete_account(
 pub struct UpdateProfileRequest {
     pub name: Option<String>,
     pub email: Option<String>,
-    pub role: Option<String>,
+    // SEC-03: `role` removed — self-service role changes are not permitted.
+    // Role changes must be performed by an admin via PUT /admin/users/:id/role.
     pub phone: Option<String>,
 }
 
@@ -878,22 +914,13 @@ pub async fn update_profile(
         }
     }
 
-    // Validate role if provided (must be 'player' or 'dm')
-    if let Some(ref role) = payload.role {
-        if role != "player" && role != "dm" {
-            return Err(json_error(
-                StatusCode::BAD_REQUEST,
-                "Role must be 'player' or 'dm'",
-            ));
-        }
-    }
-
+    // SEC-03: Role is not user-settable. Users keep their existing role.
     // Build update values
     let new_name = payload.name.unwrap_or_else(|| user.name.clone());
     let new_email = payload.email.unwrap_or_else(|| user.email.clone());
-    let new_role = payload.role.unwrap_or_else(|| user.role.clone());
+    let new_role = user.role.clone(); // always preserved
     let new_phone = payload.phone.or(user.phone.clone());
-    let role_changed = new_role != user.role;
+    let role_changed = false; // cannot change via this endpoint
 
     let mut updated_user = user.clone();
     updated_user.name = new_name.clone();
@@ -909,18 +936,12 @@ pub async fn update_profile(
             )
         })?;
 
-    // Log audit - include role change if applicable
-    let audit_details = if role_changed {
-        format!(
-            "Profile updated: name='{}', email='{}', role changed from '{}' to '{}'",
-            new_name, new_email, user.role, new_role
-        )
-    } else {
-        format!(
-            "Profile updated: name='{}', email='{}'",
-            new_name, new_email
-        )
-    };
+    // Log audit
+    let audit_details = format!(
+        "Profile updated: name='{}', email='{}'",
+        new_name, new_email
+    );
+    let _ = role_changed; // suppress unused warning (always false per SEC-03)
 
     crate::audit::log_audit(
         &pool,
@@ -1029,33 +1050,9 @@ pub async fn change_password(
 
 #[allow(dead_code)]
 pub async fn validate_session(pool: &DbPool, token: &str) -> Result<User, (StatusCode, String)> {
-    // Strategy: Check if it's a UUID (DB Session) or JWT (Google)
-
-    // Simple heuristic: UUIDs are 36 chars. JWTs are much longer.
-    if token.len() > 50 {
-        // Assume Google JWT
-        let claims = verify_google_token(token)
-            .await
-            .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
-
-        // Find user by email
-        let user = crate::db::queries::user_repo::UserRepo::find_by_email(pool, &claims.email)
-            .map_err(|_| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Database error".to_string(),
-                )
-            })?
-            .ok_or((
-                StatusCode::UNAUTHORIZED,
-                "User not found (JIT required)".to_string(),
-            ))?;
-
-        Ok(user)
-    } else {
-        // Assume DB Session
-        validate_db_session(pool, token).await
-    }
+    // SEC-01: All sessions are now server-side DB sessions (UUID tokens).
+    // Google OAuth also creates a DB session at login — there is no more "pass-through" JWT path.
+    validate_db_session(pool, token).await
 }
 
 async fn validate_db_session(pool: &DbPool, token: &str) -> Result<User, (StatusCode, String)> {

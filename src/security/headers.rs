@@ -20,11 +20,8 @@ pub async fn security_headers(request: Request<Body>, next: Next) -> Response<Bo
     // Prevent clickjacking
     headers.insert("X-Frame-Options", HeaderValue::from_static("DENY"));
 
-    // Enable XSS protection
-    headers.insert(
-        "X-XSS-Protection",
-        HeaderValue::from_static("1; mode=block"),
-    );
+    // SEC-06: X-XSS-Protection is deprecated in modern browsers (Chrome 78+, Firefox).
+    // It can cause false positives and is superseded by a strict CSP. Removed.
 
     // Enforce HTTPS (when deployed)
     headers.insert(
@@ -33,11 +30,14 @@ pub async fn security_headers(request: Request<Body>, next: Next) -> Response<Bo
     );
 
     // Content Security Policy
+    // SEC-06: Removed 'unsafe-inline' from script-src. Inline scripts must be moved
+    // to external .js files or use nonces. 'unsafe-inline' in style-src is kept for now
+    // as Tailwind/anime.js inject inline styles at runtime.
     headers.insert(
         "Content-Security-Policy",
         HeaderValue::from_static(
             "default-src 'self'; \
-             script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://accounts.google.com; \
+             script-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://accounts.google.com; \
              style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://accounts.google.com; \
              font-src 'self' https://fonts.gstatic.com; \
              img-src 'self' data: https:; \

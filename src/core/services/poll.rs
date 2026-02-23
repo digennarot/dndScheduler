@@ -123,8 +123,8 @@ impl PollService {
 
         if let (Some(min), Some(max)) = (min_date, max_date) {
             let duration = max.signed_duration_since(min);
-            if duration.num_days() >= 14 {
-                return Err((StatusCode::BAD_REQUEST, "Date range cannot exceed 14 days".to_string()));
+            if duration.num_days() >= 21 {
+                return Err((StatusCode::BAD_REQUEST, "Date range cannot exceed 21 days".to_string()));
             }
         }
 
@@ -160,9 +160,9 @@ impl PollService {
         };
 
         // 3. Persist to DB via Repo
-        tracing::info!("DEBUG: Starting write tx for poll {}", poll_id);
+        tracing::debug!("Starting write tx for poll {}", poll_id);
         let mut tx = pool.begin_write().map_err(|e| {
-            tracing::error!("DEBUG: Failed to begin write tx: {}", e);
+            tracing::error!("Failed to begin write tx for poll {}: {}", poll_id, e);
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
         })?;
 
@@ -212,7 +212,8 @@ impl PollService {
               }
         }
 
-        // Participants
+        // Participants: collect (email, access_token) pairs for invites after commit
+        let mut participant_invites: Vec<(String, String, String)> = Vec::new(); // (email, name, access_token)
         for email in &payload.participants {
             let participant_id = Uuid::new_v4().to_string(); // Internal
             let access_token = Uuid::new_v4().to_string();
@@ -220,22 +221,62 @@ impl PollService {
             let sanitized_name = sanitize_string(&name);
             
             PollRepo::add_participant(
-                &tx, // Wait, tx is initialized through pool.begin_write(), passing &tx allows write ops
+                &tx,
                 &participant_id,
                 &poll_id,
                 &sanitized_name,
                 Some(email.as_str()),
                 Some(access_token.as_str())
             ).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add participant".to_string()))?;
+
+            participant_invites.push((email.clone(), sanitized_name, access_token));
         }
 
         tx.commit().map_err(|e| {
-            tracing::error!("DEBUG: Failed to commit write tx: {}", e);
+            tracing::error!("Failed to commit write tx for poll {}: {}", poll_id, e);
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
         })?;
-        tracing::info!("DEBUG: Committed write tx for poll {}", poll_id);
+        tracing::debug!("Committed write tx for poll {}", poll_id);
 
-        // 4. Log Activity
+        // 4. Send invitation emails (after commit, non-blocking)
+        {
+            let base_url = std::env::var("BASE_URL")
+                .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            let base_url = base_url.trim_end_matches('/').to_string();
+
+            // Resolve organizer display name (M1: was hardcoded)
+            let organizer_display = organizer_id
+                .as_deref()
+                .and_then(|id| {
+                    crate::db::queries::user_repo::UserRepo::find_by_id(pool, id)
+                        .ok()
+                        .flatten()
+                        .map(|u| u.name)
+                })
+                .unwrap_or_else(|| "Il Dungeon Master".to_string());
+
+            for (email, player_name, access_token) in &participant_invites {
+                let participate_url = format!(
+                    "{}/participate.html?poll={}&token={}",
+                    base_url, poll_id, access_token
+                );
+                if let Err(e) = crate::core::services::email::send_invite_email(
+                    email,
+                    player_name,
+                    &title,
+                    &organizer_display,
+                    &participate_url,
+                )
+                .await
+                {
+                    tracing::warn!("Failed to send invite email to {}: {}", email, e);
+                } else {
+                    tracing::info!("Invite email sent to {}", email);
+                }
+            }
+        }
+
+        // 5. Log Activity
         crate::api::handlers::activity::log_activity(
             pool,
             "poll_created",
@@ -245,7 +286,7 @@ impl PollService {
              Some(title.clone()),
         ).await.unwrap_or_else(|e| tracing::error!("Activity log error: {}", e));
 
-        // 5. Event Sourcing
+        // 6. Event Sourcing
         let event_v2 = crate::core::events::PollCreatedV2 {
             id: poll_id.clone(),
             title: title.clone(),

@@ -232,85 +232,111 @@
     <div class="content-layer">
         <!-- Navigation -->
         <nav class="bg-white/90 backdrop-blur-sm border-b border-amber/20 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Branding -->
-                <div class="flex items-center space-x-3 shrink-0">
-                    <div class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center shrink-0">
-                        <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Branding -->
+                    <div class="flex items-center space-x-3 shrink-0">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-forest to-mystic rounded-lg flex items-center justify-center shrink-0">
+                            <span class="text-white font-cinzel font-bold text-lg">D&D</span>
+                        </div>
+                        <h1
+                            class="font-cinzel text-lg sm:text-xl font-semibold text-forest hidden md:block whitespace-nowrap">
+                            Pianificatore</h1>
                     </div>
-                    <h1 class="font-cinzel text-lg sm:text-xl font-semibold text-forest hidden md:block whitespace-nowrap">Pianificatore</h1>
-                </div>
 
-                <!-- Navigation Links -->
-                <div class="flex-1 flex items-center justify-center md:justify-start px-2 sm:px-6 overflow-x-auto no-scrollbar" id="main-nav-links">
-                    <div class="flex space-x-4 sm:space-x-8 items-center">
-                        <a href="/index.html" class="nav-dyn-link text-gray-500 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1" id="nav-home" title="Torna alla Home page">
-                            <span class="text-lg">🏕️</span><span class="hidden md:inline">Home</span>
+                    <!-- Navigation Links -->
+                    <div class="flex-1 flex items-center justify-center md:justify-start px-2 sm:px-6 overflow-x-auto no-scrollbar"
+                        id="main-nav-links">
+                        <div class="flex space-x-4 sm:space-x-8 items-center">
+                            <a href="/index.html"
+                                class="nav-dyn-link text-gray-500 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1"
+                                id="nav-home" title="Torna alla Home page">
+                                <span class="text-lg">🏕️</span><span class="hidden md:inline">Home</span>
+                            </a>
+                            <!-- Selettore | -->
+                            <span class="text-gray-300 hidden sm:inline">|</span>
+                            <a href="/dashboard.html"
+                                class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1"
+                                id="nav-dashboard" title="Bacheca campagne"><span class="text-lg">📜</span><span
+                                    class="hidden md:inline">Bacheca</span></a>
+                            <a href="/create-poll.html"
+                                class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1"
+                                id="nav-create" title="Crea nuovo sondaggio"><span class="text-lg">✨</span><span
+                                    class="hidden md:inline">Crea</span></a>
+                            <a href="/participate.html"
+                                class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1"
+                                id="nav-participate" title="Partecipa a un sondaggio"><span
+                                    class="text-lg">⚔️</span><span class="hidden md:inline">Partecipa</span></a>
+                            <a href="/manage.html"
+                                class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base flex items-center gap-1"
+                                id="nav-manage" title="Gestisci le tue campagne"><span class="text-lg">🗺️</span><span
+                                    class="hidden md:inline">Gestisci</span></a>
+                        </div>
+                    </div>
+
+                    <!-- Right Actions -->
+                    <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
+                        <a href="http://127.0.0.1:30000/auth" target="_blank" data-foundry-btn=""
+                            class="hidden lg:flex items-center space-x-2 bg-gradient-to-r from-amber to-copper text-white px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0">
+                            <span>🎲</span>
+                            <span>FoundryVTT</span>
                         </a>
-                        <!-- Selettore | -->
-                        <span class="text-gray-300 hidden sm:inline">|</span>
-                        <a href="/dashboard.html" class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base" id="nav-dashboard">Bacheca</a>
-                        <a href="/create-poll.html" class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base" id="nav-create">Crea</a>
-                        <a href="/participate.html" class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base" id="nav-participate">Partecipa</a>
-                        <a href="/manage.html" class="nav-dyn-link text-gray-600 hover:text-forest transition-colors whitespace-nowrap font-medium text-sm sm:text-base" id="nav-manage">Gestisci</a>
-                    </div>
-                </div>
+                        <a href="/admin.html"
+                            class="nav-dyn-link text-gray-600 hover:text-forest transition-colors font-medium text-sm hidden lg:block shrink-0"
+                            id="nav-admin">
+                            Admin
+                        </a>
 
-                <!-- Right Actions -->
-                <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
-                    <a href="http://127.0.0.1:30000/auth" target="_blank" data-foundry-btn="" class="hidden lg:flex items-center space-x-2 bg-gradient-to-r from-amber to-copper text-white px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0">
-                        <span>🎲</span>
-                        <span>FoundryVTT</span>
-                    </a>
-                    <a href="/admin.html" class="nav-dyn-link text-gray-600 hover:text-forest transition-colors font-medium text-sm hidden lg:block shrink-0" id="nav-admin">
-                        Admin
-                    </a>
-                    
-                    <!-- User Display (when logged in) -->
-                    <div id="user-display" style="display: none;" class="items-center space-x-2 px-2 sm:px-3 py-1 bg-emerald/10 text-forest font-medium rounded-lg border border-emerald/20 text-sm shrink-0"></div>
-                    
-                    <!-- Login Link (when not logged in) -->
-                    <a id="login-link" href="/login.html" class="nav-dyn-link items-center space-x-1 sm:space-x-2 bg-gradient-to-r from-forest to-emerald text-white px-2 sm:px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0" style="display: none;" id="nav-login">
-                        <span>🛡️</span>
-                        <span class="hidden sm:inline">Accedi</span>
-                    </a>
-                    
-                    <!-- Logout Button (when logged in) -->
-                    <button id="logout-btn" style="display: none;" class="items-center space-x-1 sm:space-x-2 bg-gradient-to-r from-deep-red to-mystic text-white px-2 sm:px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0">
-                        <span>🚪</span>
-                        <span class="hidden sm:inline">Esci</span>
-                    </button>
+                        <!-- User Display (when logged in) -->
+                        <div id="user-display" style="display: none;"
+                            class="items-center space-x-2 px-2 sm:px-3 py-1 bg-emerald/10 text-forest font-medium rounded-lg border border-emerald/20 text-sm shrink-0">
+                        </div>
+
+                        <!-- Login Link (when not logged in) -->
+                        <a id="login-link" href="/login.html"
+                            class="nav-dyn-link items-center space-x-1 sm:space-x-2 bg-gradient-to-r from-forest to-emerald text-white px-2 sm:px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0"
+                            style="display: none;" id="nav-login">
+                            <span>🛡️</span>
+                            <span class="hidden sm:inline">Accedi</span>
+                        </a>
+
+                        <!-- Logout Button (when logged in) -->
+                        <button id="logout-btn" style="display: none;"
+                            class="items-center space-x-1 sm:space-x-2 bg-gradient-to-r from-deep-red to-mystic text-white px-2 sm:px-3 py-1.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm shrink-0">
+                            <span>🚪</span>
+                            <span class="hidden sm:inline">Esci</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
-        <script>
-            // Highlight active link immediately to prevent FOUC
-            (function() {
-                const p = window.location.pathname;
-                const m = {
-                    '/index.html': 'nav-home',
-                    '/dashboard.html': 'nav-dashboard',
-                    '/create-poll.html': 'nav-create',
-                    '/participate.html': 'nav-participate',
-                    '/manage.html': 'nav-manage',
-                    '/admin.html': 'nav-admin',
-                    '/login.html': 'nav-login'
-                };
-                for (const [k, v] of Object.entries(m)) {
-                    if (p.includes(k) || (p === '/' && k === '/index.html')) {
-                        const e = document.getElementById(v);
-                        if (e) {
-                            // Don't override buttons styles, just add border to text links
-                            if (!e.classList.contains('bg-gradient-to-r')) {
-                                e.className += ' text-forest border-b-2 border-amber pb-1';
+            <script>
+                    // Highlight active link immediately to prevent FOUC
+                    (function () {
+                        const p = window.location.pathname;
+                        const m = {
+                            '/index.html': 'nav-home',
+                            '/dashboard.html': 'nav-dashboard',
+                            '/create-poll.html': 'nav-create',
+                            '/participate.html': 'nav-participate',
+                            '/manage.html': 'nav-manage',
+                            '/admin.html': 'nav-admin',
+                            '/login.html': 'nav-login'
+                        };
+                        for (const [k, v] of Object.entries(m)) {
+                            if (p.includes(k) || (p === '/' && k === '/index.html')) {
+                                const e = document.getElementById(v);
+                                if (e) {
+                                    // Don't override buttons styles, just add border to text links
+                                    if (!e.classList.contains('bg-gradient-to-r')) {
+                                        e.className += ' text-forest border-b-2 border-amber pb-1';
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-            })();
-        </script>
-    </nav>
+                    })();
+            </script>
+        </nav>
 
         <!-- Header Section -->
         <section class="aurora-bg py-12">

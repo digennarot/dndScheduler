@@ -23,9 +23,15 @@ pub async fn ensure_session(
     } else {
         let session_id = Uuid::new_v4().to_string();
         
+        // SEC-05: Secure flag is env-controlled (true by default for production HTTPS).
+        // Set COOKIE_SECURE=false in .env for local HTTP development.
+        let cookie_secure = std::env::var("COOKIE_SECURE")
+            .map(|v| v.to_lowercase() != "false" && v != "0")
+            .unwrap_or(true);
+
         let cookie = Cookie::build((cookie_name, session_id))
             .path("/")
-            .secure(false)
+            .secure(cookie_secure)
             .http_only(true)
             .same_site(SameSite::Lax)
             .build();

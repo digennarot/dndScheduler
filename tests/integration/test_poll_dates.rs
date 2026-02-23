@@ -56,13 +56,13 @@ async fn test_create_poll_past_dates() {
 }
 
 #[tokio::test]
-async fn test_create_poll_exceeds_14_days() {
+async fn test_create_poll_exceeds_21_days() {
     let ctx = helpers::setup_test_app().await;
     let server = TestServer::new(ctx.app).unwrap();
 
     let today = Utc::now().date_naive();
     let tomorrow = today + Duration::days(1);
-    let far_future = tomorrow + Duration::days(14);
+    let far_future = tomorrow + Duration::days(22); // 22 > 21, should trigger BAD_REQUEST
     
     let obj = json!({
         "title": "Date Range Too Wide",
@@ -78,7 +78,7 @@ async fn test_create_poll_exceeds_14_days() {
     let res = server.post("/api/polls").json(&obj).await;
     assert_eq!(res.status_code(), StatusCode::BAD_REQUEST);
     let err_json = res.json::<serde_json::Value>();
-    assert!(err_json["error"].as_str().unwrap().contains("Date range cannot exceed 14 days"));
+    assert!(err_json["error"].as_str().unwrap().contains("Date range cannot exceed 21 days"));
 }
 
 #[tokio::test]

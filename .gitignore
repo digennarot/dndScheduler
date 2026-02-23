@@ -11,10 +11,11 @@ target/
 *.sqlite3
 
 # Environment files (sensitive credentials)
-.env
+# .env is now encrypted via SOPS and tracked by Git
 .env.local
 .env.*.local
 *.env
+!.env
 
 # IDE and editor files
 .vscode/
@@ -44,3 +45,6 @@ Thumbs.db
 
 # Rust specific
 Cargo.lock
+
+# Browser/curl session files (SEC-08)
+cookies.txt

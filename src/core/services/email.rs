@@ -13,6 +13,15 @@ fn is_mock_mode() -> bool {
         == "true"
 }
 
+/// Escape special HTML characters to prevent XSS when interpolating into HTML email bodies
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 /// Invia email generica
 pub async fn send_email(to: &str, subject: &str, body: &str) -> Result<(), String> {
     // If mock mode is enabled, just log and return success
@@ -91,6 +100,57 @@ pub async fn send_welcome_email(email: &str, name: &str) -> Result<(), String> {
     );
 
     send_email(email, subject, &body).await
+}
+
+/// Invia email di invito a partecipare a un sondaggio
+pub async fn send_invite_email(
+    email: &str,
+    player_name: &str,
+    session_title: &str,
+    organizer_name: &str,
+    participate_url: &str,
+) -> Result<(), String> {
+    // Escape all interpolated values to prevent XSS in email HTML (M3)
+    let player_name_h  = html_escape(player_name);
+    let session_title_h = html_escape(session_title);
+    let organizer_name_h = html_escape(organizer_name);
+    // participate_url is URL-safe (built from NanoID + UUID) — still escape for safety
+    let participate_url_h = html_escape(participate_url);
+
+    let subject = format!("Sei stato invitato a: {}", session_title);
+    let body = format!(
+        r#"
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #6b21a8;">⚔️ Invito alla Sessione D&amp;D</h1>
+            <p>Ciao <strong>{player_name_h}</strong>!</p>
+            <p><strong>{organizer_name_h}</strong> ti ha invitato a partecipare all'organizzazione della sessione:</p>
+            <h2 style="color: #7c3aed;">{session_title_h}</h2>
+            <p>Clicca sul link qui sotto per indicare la tua disponibilità:</p>
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{participate_url_h}"
+                   style="background-color: #7c3aed; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
+                    🎲 Indica la tua disponibilità
+                </a>
+            </p>
+            <p style="color: #6b7280; font-size: 14px;">
+                Oppure copia e incolla questo link nel browser:<br>
+                <a href="{participate_url_h}">{participate_url_h}</a>
+            </p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            <p style="color: #9ca3af; font-size: 12px;">
+                Che i dadi siano sempre a tuo favore! 🎲<br>
+                D&amp;D Scheduler
+            </p>
+        </div>
+        "#,
+        player_name_h = player_name_h,
+        organizer_name_h = organizer_name_h,
+        session_title_h = session_title_h,
+        participate_url_h = participate_url_h,
+    );
+
+    send_email(email, &subject, &body).await
 }
 
 /// Invia email di promemoria
